@@ -7,6 +7,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="吃饭日记">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="apple-touch-startup-image" media="(device-width:390px) and (device-height:844px) and (-webkit-device-pixel-ratio:3)" href="assets/splash-1170x2532.png">
+<link rel="apple-touch-startup-image" media="(device-width:393px) and (device-height:852px) and (-webkit-device-pixel-ratio:3)" href="assets/splash-1179x2556.png">
+<link rel="apple-touch-startup-image" media="(device-width:430px) and (device-height:932px) and (-webkit-device-pixel-ratio:3)" href="assets/splash-1290x2796.png">
 <title>吃饭日记</title>
 <style>
 :root{
@@ -1405,6 +1411,15 @@ document.addEventListener('click', function(e){
 });
 
 /* ---------------- boot ---------------- */
+// 注册 Service Worker：让应用能离线打开、更新后自动同步
+if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').then(function(reg){
+      try { reg.update(); } catch(e){}          // 主动检查新版本
+    }).catch(function(){});
+  });
+}
+
 state = load();
 if(!state.recentPicks) state.recentPicks = [];
 render();
