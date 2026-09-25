@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="theme-color" content="#FFF6ED">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="吃饭日记">
+<title>吃饭日记</title>
+<style>
+:root{
+  --bg:#FDF7F0;
+  --surface:#FFFFFF;
+  --surface-2:#FFFBF7;
+  --ink:#241C15;
+  --ink-2:#5C4B3D;
+  --muted:#A08D7E;
+  --line:#F1E5D9;
+  --line-2:#EADCCD;
+  --primary:#FF7A3D;
+  --primary-d:#EF5F1E;
+  --primary-soft:#FFEDE3;
+  --gold:#E0A21B;   --gold-soft:#FFF4DC;
+  --orange:#FF7A3D; --orange-soft:#FFEDE3;
+  --blue:#4C7BF3;   --blue-soft:#E9EFFE;
+  --purple:#8B6BF2; --purple-soft:#F0EBFE;
+  --green:#33A46B;  --green-soft:#E6F6EE;
+  --pink:#EC5A8B;   --pink-soft:#FDEBF1;
+  --red:#E5484D;
+  --shadow:0 1px 2px rgba(60,35,15,.05),0 8px 24px -12px rgba(60,35,15,.16);
+  --shadow-lg:0 24px 60px -20px rgba(60,35,15,.32);
+  --r:18px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+  font-size:15px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  min-height:100dvh;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+svg{width:18px;height:18px;flex:none;display:block}
+button:focus{outline:none}
+button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+button{border:none;background:none;cursor:pointer;padding:0}
+input,textarea,select{outline:none}
+::selection{background:var(--primary-soft)}
+
+/* ---------- desktop phone frame ---------- */
+#shell{position:relative;width:100%;max-width:440px;margin:0 auto;min-height:100dvh;background:var(--bg)}
+@media(min-width:560px){
+  body{background:#F2E9E0;background-image:radial-gradient(circle at 20% 0%,#FBEFE4 0%,#EFE4D9 60%,#E9DCD0 100%);padding:24px 0}
+  #shell{min-height:calc(100dvh - 48px);border-radius:34px;overflow:hidden;box-shadow:var(--shadow-lg);border:1px solid rgba(255,255,255,.7)}
+}
+
+/* ---------- top bar ---------- */
+header{position:sticky;top:0;z-index:30;background:linear-gradient(180deg,var(--bg) 72%,rgba(253,247,240,.86));padding:18px 18px 8px}
+@media(min-width:560px){header{padding-top:22px}}
+.hrow{display:flex;align-items:flex-start;gap:12px}
+.htitle{flex:1;min-width:0}
+.hdate{font-size:12.5px;color:var(--muted);letter-spacing:.2px}
+.hhi{font-size:22px;font-weight:800;letter-spacing:-.4px;margin-top:2px}
+.hhi em{font-style:normal;color:var(--primary)}
+.hsub{font-size:13px;color:var(--ink-2);margin-top:2px}
+.iconbtn{width:38px;height:38px;flex:none;border-radius:12px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--ink-2);box-shadow:var(--shadow);transition:transform .12s,color .12s}
+.iconbtn:active{transform:scale(.93)}
+.iconbtn svg{width:19px;height:19px;display:block}
+
+/* ---------- layout ---------- */
+main{padding:6px 16px calc(112px + var(--safe-b))}
+@media(min-width:560px){main{padding-bottom:calc(112px + var(--safe-b))}}
+.card{background:var(--surface);border-radius:var(--r);border:1px solid var(--line);box-shadow:var(--shadow)}
+.sec{margin-top:20px}
+.sec-h{display:flex;align-items:baseline;gap:8px;padding:0 4px 10px}
+.sec-h h2{margin:0;font-size:15px;font-weight:750;letter-spacing:-.2px}
+.sec-h .sp{flex:1}
+.sec-h .mini{font-size:12.5px;color:var(--muted)}
+.empty{padding:30px 20px;text-align:center;color:var(--muted);font-size:13.5px}
+.empty .big{font-size:30px;margin-bottom:8px;opacity:.65;line-height:1}
+
+/* ---------- quick add ---------- */
+.quick{padding:14px}
+.qrow{display:flex;gap:8px;align-items:stretch}
+.qinput{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1.5px solid var(--line-2);border-radius:14px;padding:0 12px;transition:border-color .15s,background .15s}
+.qinput:focus-within{border-color:var(--primary);background:#fff}
+.qinput input{flex:1;min-width:0;border:none;background:none;padding:13px 0;font-size:15px}
+.qinput input::placeholder{color:#BFAE9F}
+.qinput > svg{color:var(--muted)}
+.qgo{width:54px;flex:none;border-radius:14px;background:var(--primary);color:#fff;font-weight:700;font-size:14px;display:grid;place-items:center;box-shadow:0 8px 18px -8px rgba(255,122,61,.9);transition:transform .12s,background .15s}
+.qgo:active{transform:scale(.95);background:var(--primary-d)}
+.qgo[disabled]{background:#E8DCD0;color:#fff;box-shadow:none}
+.qmeta{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;background:#F6EDE4;border-radius:11px;padding:3px;gap:2px}
+.seg button{padding:5px 11px;border-radius:9px;font-size:12.5px;color:var(--ink-2);font-weight:600;transition:.15s}
+.seg button.on{background:#fff;color:var(--primary);box-shadow:0 1px 3px rgba(60,35,15,.12)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.chip{padding:7px 12px;border-radius:999px;background:#F7EFE7;border:1px solid transparent;font-size:13px;color:var(--ink-2);font-weight:550;transition:transform .12s,background .15s,border-color .15s}
+.chip:active{transform:scale(.94);background:var(--primary-soft);border-color:#FFD9C4;color:var(--primary-d)}
+.chip.add{background:#fff;border:1.5px dashed var(--line-2);color:var(--muted)}
+
+/* ---------- timeline ---------- */
+.tl{padding:6px 14px 12px}
+.tl-item{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}
+.tl-item:last-child{border-bottom:none}
+.tl-dot{width:34px;height:34px;flex:none;border-radius:11px;display:grid;place-items:center;font-size:16px}
+.tl-body{flex:1;min-width:0}
+.tl-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.tl-name{font-weight:650;font-size:15px;letter-spacing:-.2px;word-break:break-word}
+.tl-time{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tl-tags{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;align-items:center}
+.tag{font-size:11.5px;padding:2px 7px;border-radius:7px;background:#F6EFE8;color:var(--ink-2);font-weight:600}
+.tag.p-home{background:var(--green-soft);color:#26814F}
+.tag.p-takeout{background:var(--orange-soft);color:#C4551B}
+.tag.p-restaurant{background:var(--purple-soft);color:#6A4CD6}
+.tag.p-canteen{background:var(--blue-soft);color:#3860C9}
+.tag.p-other{background:#F1EAE3;color:#7C6858}
+.tag.money{background:var(--gold-soft);color:#9A6D08;font-variant-numeric:tabular-nums}
+.stars{display:inline-flex;gap:1px;font-size:11px;color:#E0A21B;letter-spacing:.5px}
+.tl-note{font-size:12.5px;color:var(--muted);margin-top:3px;word-break:break-word}
+.del{width:28px;height:28px;flex:none;border-radius:9px;display:grid;place-items:center;color:#C9B7A7;transition:.15s}
+.del:hover,.del:active{background:#FDECEC;color:var(--red)}
+.del svg{width:15px;height:15px}
+
+/* ---------- bars ---------- */
+.bar{height:7px;border-radius:99px;background:#F2E8DE;overflow:hidden}
+.bar > i{display:block;height:100%;border-radius:99px;background:var(--primary);transition:width .5s cubic-bezier(.4,0,.2,1)}
+
+/* ---------- picker ---------- */
+.pick{padding:20px 16px;text-align:center;position:relative;overflow:hidden}
+.pick:before{content:"";position:absolute;inset:-40% -10% auto;height:150px;background:radial-gradient(ellipse at 50% 0%,rgba(255,122,61,.16),transparent 70%)}
+.slot{position:relative;font-size:27px;font-weight:800;letter-spacing:-.5px;min-height:46px;display:flex;align-items:center;justify-content:center;padding:0 4px;word-break:break-word}
+.slot.rolling{color:var(--muted);opacity:.75}
+.slot.final{animation:pop .38s cubic-bezier(.2,1.5,.4,1)}
+@keyframes pop{0%{transform:scale(.86);opacity:.4}100%{transform:scale(1);opacity:1}}
+.pick-sub{font-size:12.5px;color:var(--muted);margin-top:6px;min-height:18px}
+.pfilters{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin:16px 0 14px}
+.fbtn{padding:7px 12px;border-radius:11px;background:#F7EFE7;font-size:12.5px;font-weight:600;color:var(--ink-2);transition:.15s}
+.fbtn.on{background:var(--primary);color:#fff;box-shadow:0 6px 14px -8px rgba(255,122,61,.95)}
+.bigbtns{display:flex;gap:9px}
+.btn{flex:1;padding:13px;border-radius:14px;font-weight:700;font-size:14.5px;transition:transform .12s,background .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:scale(.97)}
+.btn svg{width:17px;height:17px}
+.btn-pri{background:var(--primary);color:#fff;box-shadow:0 10px 22px -12px rgba(255,122,61,1)}
+.btn-pri:active{background:var(--primary-d)}
+.btn-ghost{background:#F7EFE7;color:var(--ink-2);flex:0 0 auto;padding-left:18px;padding-right:18px}
+.btn-line{background:#fff;border:1.5px solid var(--line-2);color:var(--ink-2)}
+.switchrow{display:flex;align-items:center;gap:9px;justify-content:center;margin-top:14px;font-size:12.5px;color:var(--muted)}
+.sw{width:42px;height:25px;border-radius:99px;background:#E6D9CC;position:relative;transition:.2s;flex:none}
+.sw:after{content:"";position:absolute;top:2.5px;left:2.5px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.18);transition:.2s cubic-bezier(.3,1.4,.5,1)}
+.sw.on{background:var(--primary)}
+.sw.on:after{transform:translateX(17px)}
+.pickhist{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;text-align:left}
+.pickhist h3{margin:0 0 8px;font-size:12.5px;color:var(--muted);font-weight:600}
+.ph-list{display:flex;flex-wrap:wrap;gap:6px}
+.ph{padding:5px 10px;border-radius:9px;background:#F7EFE7;font-size:12.5px;color:var(--ink-2)}
+.ph b{font-weight:700;color:var(--primary)}
+
+/* ---------- calendar ---------- */
+.cal{padding:14px}
+.cal-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-h b{font-size:15px;font-weight:750}
+.cal-h .nav{display:flex;gap:4px}
+.cal-h .nav button{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--ink-2)}
+.cal-h .nav button:active{background:#F5EDE5}
+.cal-h .nav svg{width:16px;height:16px}
+.grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.wd{text-align:center;font-size:11px;color:var(--muted);padding:4px 0 6px;font-weight:600}
+.day{aspect-ratio:1;border-radius:11px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;font-variant-numeric:tabular-nums;color:var(--ink);transition:.15s;position:relative}
+.day.pad{color:#D8C9BB}
+.day.today{font-weight:800;color:var(--primary)}
+.day.has{background:#FBF2E9}
+.day.sel{background:var(--primary);color:#fff!important;box-shadow:0 6px 14px -7px rgba(255,122,61,.95)}
+.day.sel .dots i{background:#fff!important;opacity:.92}
+.dots{display:flex;gap:2px;height:5px;align-items:center}
+.dots i{width:4px;height:4px;border-radius:50%;display:block}
+
+/* ---------- stats ---------- */
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.kpi{padding:14px;border-radius:16px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow)}
+.kpi .v{font-size:25px;font-weight:800;letter-spacing:-.6px;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:2px}
+.kpi .k{font-size:12.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:5px}
+.kpi .k svg{width:14px;height:14px;opacity:.8}
+.chart{padding:16px 14px 10px}
+.bars{display:flex;align-items:flex-end;gap:6px}
+.bcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+.btrack{width:100%;height:96px;display:flex;align-items:flex-end;justify-content:center}
+.bcol .amt{flex:none;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bcol .colbar{width:100%;max-width:30px;flex:none;border-radius:8px 8px 4px 4px;background:linear-gradient(180deg,#FFA76F,#FF7A3D);min-height:3px;transition:height .5s cubic-bezier(.4,0,.2,1)}
+.bcol.zero .colbar{background:#EFE3D7}
+.bcol.today .colbar{background:linear-gradient(180deg,#FFC08C,#FF9A55);box-shadow:0 0 0 2px #fff,0 0 0 3.5px #FFD9C4}
+.bcol .lb{flex:none;font-size:10.5px;color:var(--muted)}
+.bcol.today .lb{color:var(--primary);font-weight:700}
+.rank{padding:8px 14px 14px}
+.rk{display:flex;align-items:center;gap:10px;padding:9px 0}
+.rk .no{width:20px;flex:none;font-size:12px;font-weight:800;color:#C9B7A7;text-align:center}
+.rk .no.top{color:var(--primary)}
+.rk .nm{flex:1;min-width:0}
+.rk .nm .t{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:5px}
+.rk .nm .t span{font-size:12px;color:var(--muted);font-weight:500;margin-left:4px}
+.rk .ct{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+.legend{display:flex;flex-wrap:wrap;gap:12px;padding:0 4px}
+.lg{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2)}
+.lg i{width:9px;height:9px;border-radius:3px;display:block;flex:none}
+.dist{padding:14px}
+.dist .row{display:flex;align-items:center;gap:10px;padding:7px 0}
+.dist .row .lbl{min-width:70px;flex:none;font-size:13px;font-weight:600;white-space:nowrap}
+.dist .row .bar{flex:1}
+.dist .row .pc{width:38px;text-align:right;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
+
+/* ---------- bottom nav ---------- */
+nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:440px;z-index:40;padding:8px 12px calc(8px + var(--safe-b));background:linear-gradient(180deg,rgba(253,247,240,.72),var(--bg) 45%);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.navin{display:flex;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:19px;box-shadow:0 -2px 20px -8px rgba(60,35,15,.22);padding:5px;gap:2px}
+.navin button{flex:1;padding:7px 2px 6px;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:10.5px;font-weight:600;transition:.15s}
+.navin button svg{width:21px;height:21px}
+.navin button.on{color:var(--primary);background:var(--primary-soft)}
+@media(min-width:560px){nav{bottom:24px}}
+
+/* ---------- sheet ---------- */
+.scrim{position:fixed;inset:0;background:rgba(40,25,12,.36);z-index:50;opacity:0;pointer-events:none;transition:opacity .24s;backdrop-filter:blur(2px)}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{position:fixed;left:50%;bottom:0;transform:translate(-50%,102%);width:100%;max-width:440px;z-index:51;background:var(--surface);border-radius:24px 24px 0 0;padding:10px 16px calc(20px + var(--safe-b));max-height:88dvh;overflow-y:auto;transition:transform .3s cubic-bezier(.32,.72,0,1);box-shadow:0 -20px 50px -18px rgba(60,35,15,.4)}
+.sheet.on{transform:translate(-50%,0)}
+@media(min-width:560px){.sheet{bottom:24px;border-radius:24px}}
+.grip{width:38px;height:4px;border-radius:99px;background:#E6D9CC;margin:4px auto 12px}
+.sh-h{font-size:17px;font-weight:800;letter-spacing:-.3px;margin-bottom:3px}
+.sh-s{font-size:12.5px;color:var(--muted);margin-bottom:14px}
+.field{margin-bottom:13px}
+.field > label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600}
+.inp{width:100%;border:1.5px solid var(--line-2);background:var(--surface-2);border-radius:13px;padding:11px 12px;font-size:15px;transition:border-color .15s}
+.inp:focus{border-color:var(--primary);background:#fff}
+textarea.inp{resize:none;min-height:66px;line-height:1.5}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.picks{display:flex;flex-wrap:wrap;gap:7px}
+.pk{padding:8px 13px;border-radius:11px;background:#F7EFE7;font-size:13px;font-weight:600;color:var(--ink-2);transition:.15s;border:1.5px solid transparent}
+.pk.on{background:var(--primary-soft);border-color:#FFCBAE;color:var(--primary-d)}
+.rate{display:flex;gap:6px}
+.rate button{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:#F7EFE7;color:#D9C9BA;transition:.15s}
+.rate button.on{background:var(--gold-soft);color:var(--gold)}
+.rate svg{width:19px;height:19px}
+.rowbtns{display:flex;gap:9px;margin-top:18px}
+.list{padding:2px 0}
+.li{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.li:last-child{border-bottom:none}
+.li .nm{flex:1;min-width:0;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li .mini{font-size:11.5px;color:var(--muted);font-weight:500;flex:none}
+.rowact{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px solid var(--line);width:100%;text-align:left}
+.rowact:last-child{border-bottom:none}
+.rowact .t{font-size:14.5px;font-weight:600}
+.rowact .s{font-size:12px;color:var(--muted);margin-top:1px}
+.rowact.danger .t{color:var(--red)}
+.rowact svg{width:17px;height:17px;color:#C9B7A7;flex:none}
+.rowact.danger svg{color:#E5484D;opacity:.6}
+
+/* ---------- toast ---------- */
+#toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(96px + var(--safe-b));z-index:70;width:100%;max-width:440px;padding:0 16px;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none}
+.toast{width:100%;background:#2E2116;color:#fff;border-radius:14px;padding:11px 12px 11px 15px;display:flex;align-items:center;gap:10px;box-shadow:0 14px 30px -12px rgba(40,25,12,.6);font-size:13.5px;pointer-events:auto;animation:up .26s cubic-bezier(.2,1.3,.4,1)}
+.toast.bye{animation:down .22s forwards}
+.toast .m{flex:1;min-width:0;line-height:1.35}
+.toast .m b{font-weight:700}
+.toast button{color:#FFB58A;font-weight:750;font-size:13.5px;padding:4px 6px;flex:none}
+@keyframes up{from{transform:translateY(14px) scale(.97);opacity:0}to{transform:none;opacity:1}}
+@keyframes down{to{transform:translateY(10px) scale(.98);opacity:0}}
+.anim{animation:fade .3s cubic-bezier(.2,.7,.3,1)}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="shell">
+  <header id="hd"></header>
+  <main id="app"></main>
+</div>
+<nav><div class="navin" id="nav"></div></nav>
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle"></div>
+<div id="toasts" aria-live="polite"></div>
+<input type="file" id="fileIn" accept="application/json,.json" class="sr">
+<script>
+/* ============================================================
+   吃饭日记 — 单文件离线小应用
+   数据只存在本机浏览器 localStorage，不上传任何服务器
+   ============================================================ */
+(function(){
+'use strict';
+
+/* ---------------- icons ---------------- */
+var ICONS = {
+  plus:'<path d="M12 5v14"/><path d="M5 12h14"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+  left:'<path d="m15 18-6-6 6-6"/>',
+  right:'<path d="m9 18 6-6-6-6"/>',
+  down:'<path d="m6 9 6 6 6-6"/>',
+  sliders:'<path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/>',
+  cal:'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  bowl:'<path d="M3 11h18a9 9 0 0 1-18 0Z"/><path d="M12 3v4"/><path d="M8 5v2"/><path d="M16 5v2"/><path d="M5 20h14"/>',
+  shuffle:'<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.8-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.4 0-2.6-.7-3.4-1.8l-.2-.3"/><path d="m18 14-4 4 4 4"/>',
+  chart:'<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  rotate:'<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  wallet:'<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-3"/>',
+  flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  dl:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+  ul:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
+  star:'<path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/>',
+  note:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  sparkle:'<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
+  user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
+};
+function icon(n,cls){
+  var filled = (n==='star');
+  return '<svg viewBox="0 0 24 24" fill="'+(filled?'currentColor':'none')+'" stroke="currentColor" stroke-width="'+(filled?1.6:1.9)+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"'+(cls?' class="'+cls+'"':'')+'>'+ICONS[n]+'</svg>';
+}
+
+/* ---------------- constants ---------------- */
+var KEY='chifan.v1';
+var MEALS=[
+  {id:'breakfast',label:'早餐',emoji:'🌅',c:'#E0A21B',soft:'#FFF4DC'},
+  {id:'lunch',label:'午餐',emoji:'☀️',c:'#FF7A3D',soft:'#FFEDE3'},
+  {id:'dinner',label:'晚餐',emoji:'🌙',c:'#4C7BF3',soft:'#E9EFFE'},
+  {id:'snack',label:'加餐',emoji:'🍪',c:'#8B6BF2',soft:'#F0EBFE'}
+];
+var PLACES=[
+  {id:'home',label:'在家做',emoji:'🏠'},
+  {id:'takeout',label:'外卖',emoji:'🛵'},
+  {id:'restaurant',label:'下馆子',emoji:'🍽️'},
+  {id:'canteen',label:'食堂',emoji:'🏢'},
+  {id:'other',label:'其他',emoji:'📍'}
+];
+var M = {}; MEALS.forEach(function(m){M[m.id]=m;});
+var PL = {}; PLACES.forEach(function(p){PL[p.id]=p;});
+
+var DEF_PRESETS=[
+  ['豆浆油条',['breakfast']],['小笼包',['breakfast']],['煎饼果子',['breakfast']],
+  ['燕麦牛奶',['breakfast']],['水煮蛋+牛奶',['breakfast']],['三明治',['breakfast']],
+  ['皮蛋瘦肉粥',['breakfast']],['肠粉',['breakfast']],['手抓饼',['breakfast']],
+  ['番茄鸡蛋盖饭',['lunch','dinner']],['兰州拉面',['lunch','dinner']],['黄焖鸡米饭',['lunch','dinner']],
+  ['麻辣烫',['lunch','dinner']],['沙县小吃',['lunch','dinner']],['蛋炒饭',['lunch','dinner']],
+  ['饺子',['lunch','dinner']],['螺蛳粉',['lunch','dinner']],['麦当劳',['lunch','dinner']],
+  ['麻辣香锅',['lunch','dinner']],['猪脚饭',['lunch','dinner']],['烤肉拌饭',['lunch','dinner']],
+  ['重庆小面',['lunch','dinner']],['火锅',['dinner']],['寿司',['lunch','dinner']],
+  ['牛肉面',['lunch','dinner']],['盖浇饭',['lunch','dinner']],['轻食沙拉',['lunch','dinner']],
+  ['奶茶',['snack']],['咖啡',['snack']],['水果',['snack']],
+  ['酸奶',['snack']],['坚果',['snack']],['蛋糕',['snack']],['冰淇淋',['snack']]
+];
+
+/* ---------------- state ---------------- */
+var state, draft = {}, rollTimer = null, lastPick = null;
+var ui = {tab:'today', qtype:'auto', histMonth:new Date(), selDate:ymd(new Date()),
+          pickType:'auto', pickRecent:true, pickPlace:'any'};
+
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+function load(){
+  var raw = null;
+  try{ raw = localStorage.getItem(KEY); }catch(e){}
+  var s = null;
+  if(raw){ try{ s = JSON.parse(raw); }catch(e){ s=null; } }
+  if(!s || typeof s!=='object') s = {};
+  if(!Array.isArray(s.meals)) s.meals = [];
+  if(!Array.isArray(s.presets) || !s.presets.length){
+    s.presets = DEF_PRESETS.map(function(p){ return {id:uid(), name:p[0], types:p[1].slice()}; });
+  }
+  return s;
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ toast('存储空间不足，保存失败'); } }
+
+/* ---------------- date utils ---------------- */
+function pad(n){ return (n<10?'0':'')+n; }
+function ymd(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function parseYmd(s){ var a=s.split('-'); return new Date(+a[0], +a[1]-1, +a[2]); }
+function today(){ return ymd(new Date()); }
+function addDays(d,n){ var x=new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
+function diffDays(a,b){ return Math.round((parseYmd(a)-parseYmd(b))/86400000); }
+function hm(d){ return pad(d.getHours())+':'+pad(d.getMinutes()); }
+var WD=['日','一','二','三','四','五','六'];
+function relDay(s){
+  var d = diffDays(s, today());
+  if(d===0) return '今天';
+  if(d===1) return '昨天';
+  if(d===-1) return '明天';
+  return (parseYmd(s).getMonth()+1)+'月'+parseYmd(s).getDate()+'日';
+}
+function esc(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+function guessType(){
+  var h = new Date().getHours();
+  if(h<10) return 'breakfast';
+  if(h<15) return 'lunch';
+  if(h<21) return 'dinner';
+  return 'snack';
+}
+function money(n){
+  if(!n) return '';
+  return (Math.round(n*100)/100).toString();
+}
+
+/* ---------------- derived ---------------- */
+function mealsOn(date){ return state.meals.filter(function(m){ return m.date===date; }); }
+function sortMeals(a){ return a.slice().sort(function(x,y){ return (x.ts||0)-(y.ts||0); }); }
+function lastNDays(n){
+  var out=[], t=new Date();
+  for(var i=n-1;i>=0;i--){ out.push(ymd(addDays(t,-i))); }
+  return out;
+}
+function streak(){
+  var set={}; state.meals.forEach(function(m){ set[m.date]=1; });
+  var d = new Date(), n = 0;
+  if(!set[ymd(d)]) d = addDays(d,-1);
+  while(set[ymd(d)]){ n++; d = addDays(d,-1); }
+  return n;
+}
+function nameKey(s){ return String(s||'').trim().toLowerCase(); }
+function topFoods(days){
+  var since = days ? ymd(addDays(new Date(), -(days-1))) : '0000-00-00';
+  var map = {};
+  state.meals.forEach(function(m){
+    if(days && m.date < since) return;
+    var k = nameKey(m.name); if(!k) return;
+    if(!map[k]) map[k] = {name:m.name, n:0};
+    map[k].n++;
+  });
+  return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a,b){ return b.n-a.n; });
+}
+function placeDist(days){
+  var since = days ? ymd(addDays(new Date(), -(days-1))) : '0000-00-00';
+  var map = {}, total = 0;
+  state.meals.forEach(function(m){
+    if(days && m.date < since) return;
+    if(!m.place) return;
+    map[m.place] = (map[m.place]||0)+1; total++;
+  });
+  return {map:map, total:total};
+}
+function sumCost(list){
+  return list.reduce(function(a,m){ return a + (Number(m.cost)||0); }, 0);
+}
+function avgRating(list){
+  var r = list.filter(function(m){ return m.rating>0; });
+  if(!r.length) return 0;
+  return r.reduce(function(a,m){ return a+m.rating; },0)/r.length;
+}
+
+/* ---------------- toast ---------------- */
+function toast(msg, opt){
+  opt = opt || {};
+  var box = document.getElementById('toasts');
+  var el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = '<div class="m">'+msg+'</div>' + (opt.action ? '<button type="button">'+esc(opt.action)+'</button>' : '');
+  box.appendChild(el);
+  var kill = function(){
+    if(el.dataset.dead) return; el.dataset.dead='1';
+    el.className = 'toast bye';
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 240);
+  };
+  if(opt.action){
+    el.querySelector('button').addEventListener('click', function(){ kill(); opt.onAction && opt.onAction(); });
+  }
+  setTimeout(kill, opt.ms || (opt.action ? 5200 : 2100));
+}
+
+/* ---------------- sheet ---------------- */
+function openSheet(title, sub, body){
+  var s = document.getElementById('sheet');
+  s.innerHTML = '<div class="grip"></div>'+
+    '<div class="sh-h" id="shTitle">'+esc(title)+'</div>'+
+    (sub ? '<div class="sh-s">'+sub+'</div>' : '')+
+    body;
+  document.getElementById('scrim').classList.add('on');
+  s.classList.add('on');
+}
+function closeSheet(){
+  document.getElementById('scrim').classList.remove('on');
+  document.getElementById('sheet').classList.remove('on');
+}
+document.getElementById('scrim').addEventListener('click', closeSheet);
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeSheet(); });
+
+/* ---------------- presets helpers ---------------- */
+function presetsFor(type){
+  return state.presets.filter(function(p){ return !p.types || !p.types.length || p.types.indexOf(type)>=0; });
+}
+function presetNames(){
+  var o = {}; state.presets.forEach(function(p){ o[nameKey(p.name)] = 1; }); return o;
+}
+
+/* ---------------- write ---------------- */
+function addMeal(o){
+  var now = new Date();
+  var m = {
+    id: uid(),
+    date: o.date || today(),
+    type: o.type || guessType(),
+    name: (o.name||'').trim(),
+    place: o.place || '',
+    cost: (o.cost===''||o.cost==null) ? 0 : Number(o.cost)||0,
+    rating: Number(o.rating)||0,
+    note: (o.note||'').trim(),
+    ts: now.getTime()
+  };
+  if(!m.name) return null;
+  state.meals.push(m); save();
+  return m;
+}
+function undoableAdd(m, label){
+  toast('已记录 <b>'+esc(m.name)+'</b>', {
+    action:'撤销',
+    onAction:function(){
+      state.meals = state.meals.filter(function(x){ return x.id!==m.id; });
+      save(); render();
+    }
+  });
+  render();
+}
+
+/* ---------------- views: today ---------------- */
+function viewToday(){
+  var d = today();
+  var list = sortMeals(mealsOn(d));
+  var gt = M[guessType()];
+  var h = new Date().getHours();
+  var hi = h<5 ? '还没睡呀' : h<10 ? '早上好' : h<14 ? '中午好' : h<18 ? '下午好' : h<23 ? '晚上好' : '夜宵时间';
+  document.getElementById('hd').innerHTML =
+    '<div class="hrow"><div class="htitle">'+
+      '<div class="hdate">'+d.replace(/-/g,'.')+' 星期'+WD[parseYmd(d).getDay()]+' · '+relDay(d)+'</div>'+
+      '<div class="hhi">'+hi+'，今天吃<em>什么</em>了？</div>'+
+    '</div>'+
+    '<button class="iconbtn" data-act="settings" aria-label="设置">'+icon('sliders')+'</button>'+
+    '</div>';
+
+  var qname = ui.qtype==='auto' ? '自动' : M[ui.qtype].label;
+  var seg = '<div class="seg">'+
+    ['auto'].concat(MEALS.map(function(m){return m.id;})).map(function(t){
+      var lb = t==='auto' ? '自动('+M[guessType()].label+')' : M[t].label;
+      return '<button data-act="qtype" data-v="'+t+'" class="'+(ui.qtype===t?'on':'')+'">'+lb+'</button>';
+    }).join('')+
+  '</div>';
+
+  // chips: 6 presets never eaten or least recent for this type
+  var type = ui.qtype==='auto' ? guessType() : ui.qtype;
+  var pool = presetsFor(type);
+  var lastEat = {};
+  state.meals.forEach(function(m){ var k=nameKey(m.name); if(!lastEat[k] || m.date>lastEat[k]) lastEat[k]=m.date; });
+  var chips = pool.slice().sort(function(a,b){
+    var la = lastEat[nameKey(a.name)]||'', lb = lastEat[nameKey(b.name)]||'';
+    return la < lb ? -1 : la > lb ? 1 : 0;
+  }).slice(0,7);
+  var chipHtml = chips.map(function(p){
+    var eaten = lastEat[nameKey(p.name)]===d;
+    return '<button class="chip" data-act="chip" data-name="'+esc(p.name)+'" data-type="'+type+'">'+
+      (eaten?'✓ ':'')+esc(p.name)+'</button>';
+  }).join('');
+  if(M[type].id!=='breakfast') chipHtml += '<button class="chip add" data-act="open-add" data-type="'+type+'">+ 记一笔带详情</button>';
+
+  var rows = MEALS.map(function(mt){
+    var items = list.filter(function(m){ return m.type===mt.id; });
+    var body;
+    if(!items.length){
+      body = '<button class="tl-item" data-act="open-add" data-type="'+mt.id+'" style="width:100%;text-align:left">'+
+        '<div class="tl-dot" style="background:'+mt.soft+';color:'+mt.c+'">'+mt.emoji+'</div>'+
+        '<div class="tl-body"><div class="tl-top"><span class="tl-name" style="color:#BFAE9F">还没记'+mt.label+'</span></div>'+
+        '<div class="tl-tags"><span class="tag">点一下添加</span></div></div></button>';
+    }else{
+      body = items.map(function(m){
+        var pl = m.place && PL[m.place];
+        return '<div class="tl-item">'+
+          '<div class="tl-dot" style="background:'+mt.soft+';color:'+mt.c+'">'+mt.emoji+'</div>'+
+          '<div class="tl-body">'+
+            '<div class="tl-top"><span class="tl-name">'+esc(m.name)+'</span>'+
+              (m.rating>0?'<span class="stars">'+'★'.repeat(m.rating)+'</span>':'')+'</div>'+
+            '<div class="tl-tags">'+
+              (pl?'<span class="tag p-'+(m.place)+'">'+pl.emoji+' '+pl.label+'</span>':'')+
+              (m.cost>0?'<span class="tag money">¥'+money(m.cost)+'</span>':'')+
+              '<span class="tag">'+mt.label+'</span>'+
+            '</div>'+
+            (m.note?'<div class="tl-note">'+esc(m.note)+'</div>':'')+
+          '</div>'+
+          '<button class="del" data-act="del" data-id="'+m.id+'" aria-label="删除">'+icon('trash')+'</button>'+
+        '</div>';
+      }).join('');
+    }
+    return '<div class="tl">'+body+'</div>';
+  }).join('');
+
+  var cost = sumCost(list), r = avgRating(list);
+  return '<div class="anim">'+
+    '<div class="card quick">'+
+      '<div class="qrow">'+
+        '<div class="qinput">'+icon('bowl')+'<input id="qi" placeholder="刚吃了什么？一句话就行" enterkeyhint="done" autocomplete="off">'+'</div>'+
+        '<button class="qgo" data-act="qadd" disabled>记录</button>'+
+      '</div>'+
+      '<div class="qmeta">'+seg+'</div>'+
+      '<div class="chips">'+chipHtml+'</div>'+
+    '</div>'+
+    '<div class="sec">'+
+      '<div class="sec-h"><h2>今天的饭</h2><span class="sp"></span>'+
+        '<span class="mini">'+list.length+' 顿'+(cost>0?' · ¥'+money(cost):'')+(r>0?' · '+r.toFixed(1)+'分':'')+'</span></div>'+
+      '<div class="card">'+rows+'</div>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------------- views: history ---------------- */
+function monthLabel(d){ return d.getFullYear()+'年'+(d.getMonth()+1)+'月'; }
+function viewHistory(){
+  document.getElementById('hd').innerHTML =
+    '<div class="hrow"><div class="htitle">'+
+      '<div class="hdate">回看 · 一共记录了 '+state.meals.length+' 顿</div>'+
+      '<div class="hhi">我的<em>吃饭记录</em></div>'+
+    '</div>'+
+    '<button class="iconbtn" data-act="settings" aria-label="设置">'+icon('sliders')+'</button></div>';
+
+  var cur = ui.histMonth, y = cur.getFullYear(), mo = cur.getMonth();
+  var first = new Date(y, mo, 1), lead = first.getDay();
+  var days = new Date(y, mo+1, 0).getDate();
+  var byDate = {};
+  state.meals.forEach(function(m){ (byDate[m.date]=byDate[m.date]||[]).push(m); });
+
+  var cells = '';
+  for(var i=0;i<lead;i++) cells += '<div class="day pad"></div>';
+  for(var dd=1; dd<=days; dd++){
+    var ds = y+'-'+pad(mo+1)+'-'+pad(dd);
+    var mm = byDate[ds] || [];
+    var types = {}; mm.forEach(function(m){ types[m.type]=1; });
+    var dots = MEALS.filter(function(t){ return types[t.id]; })
+      .map(function(t){ return '<i style="background:'+t.c+'"></i>'; }).join('');
+    cells += '<button class="day'+(ds===today()?' today':'')+(ds===ui.selDate?' sel':'')+(mm.length?' has':'')+'" data-act="day" data-d="'+ds+'">'+
+      '<span>'+dd+'</span><span class="dots">'+dots+'</span></button>';
+  }
+
+  var sel = sortMeals(byDate[ui.selDate]||[]);
+  var selBody = sel.length ? '<div class="tl">'+ sel.map(function(m){
+      var mt = M[m.type], pl = m.place && PL[m.place];
+      return '<div class="tl-item">'+
+        '<div class="tl-dot" style="background:'+mt.soft+';color:'+mt.c+'">'+mt.emoji+'</div>'+
+        '<div class="tl-body"><div class="tl-top"><span class="tl-name">'+esc(m.name)+'</span></div>'+
+        '<div class="tl-tags">'+(pl?'<span class="tag p-'+m.place+'">'+pl.emoji+' '+pl.label+'</span>':'')+
+        (m.cost>0?'<span class="tag money">¥'+money(m.cost)+'</span>':'')+'<span class="tag">'+mt.label+'</span>'+
+        (m.rating>0?'<span class="stars">'+'★'.repeat(m.rating)+'</span>':'')+'</div>'+
+        (m.note?'<div class="tl-note">'+esc(m.note)+'</div>':'')+'</div>'+
+        '<button class="del" data-act="del" data-id="'+m.id+'" aria-label="删除">'+icon('trash')+'</button></div>';
+    }).join('')+'</div>'
+    : '<div class="empty"><div class="big">🍽️</div>这天还没有记录<br><span style="font-size:12.5px">点右上角 + 可以补记</span></div>';
+
+  return '<div class="anim">'+
+    '<div class="card cal">'+
+      '<div class="cal-h"><b>'+monthLabel(cur)+'</b>'+
+        '<div class="nav">'+
+          '<button data-act="mprev" aria-label="上个月">'+icon('left')+'</button>'+
+          '<button data-act="mtoday" aria-label="回到本月">'+icon('bowl')+'</button>'+
+          '<button data-act="mnext" aria-label="下个月">'+icon('right')+'</button>'+
+        '</div></div>'+
+      '<div class="grid7">'+['日','一','二','三','四','五','六'].map(function(w){return '<div class="wd">'+w+'</div>';}).join('')+cells+'</div>'+
+      '<div style="margin-top:12px;border-top:1px solid var(--line);padding-top:10px" class="legend">'+
+        MEALS.map(function(t){ return '<span class="lg"><i style="background:'+t.c+'"></i>'+t.label+'</span>'; }).join('')+
+      '</div>'+
+    '</div>'+
+    '<div class="sec">'+
+      '<div class="sec-h"><h2>'+relDay(ui.selDate)+'</h2><span class="sp"></span><span class="mini" style="margin-right:8px">'+sel.length+' 顿</span>'+
+        '<button class="iconbtn" style="width:32px;height:32px" data-act="add-on" data-d="'+ui.selDate+'" aria-label="补记">'+icon('plus')+'</button></div>'+
+      '<div class="card">'+selBody+'</div>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------------- views: picker ---------------- */
+function pickPool(){
+  var type = ui.pickType==='auto' ? guessType() : ui.pickType;
+  var seen = {}, out = [];
+  presetsFor(type).forEach(function(p){
+    var k = nameKey(p.name); if(!k || seen[k]) return; seen[k]=1;
+    out.push({name:p.name, from:'常吃清单'});
+  });
+  if(ui.pickRecent){
+    var cutoff = ymd(addDays(new Date(),-45));
+    state.meals.forEach(function(m){
+      if(m.date < cutoff) return;
+      if(m.type !== type && !(type==='lunch'&&m.type==='dinner') && !(type==='dinner'&&m.type==='lunch')) return;
+      var k = nameKey(m.name); if(!k || seen[k]) return; seen[k]=1;
+      out.push({name:m.name, from:'你吃过'});
+    });
+  }
+  // 排除最近 3 次抽中的
+  var rec = state.recentPicks || [];
+  if(out.length > rec.length + 1){
+    out = out.filter(function(x){ return rec.indexOf(nameKey(x.name)) < 0; });
+  }
+  return out;
+}
+function viewPick(){
+  document.getElementById('hd').innerHTML =
+    '<div class="hrow"><div class="htitle">'+
+      '<div class="hdate">选择困难 · 交给骰子</div>'+
+      '<div class="hhi">别纠结，<em>抽一个</em></div>'+
+    '</div>'+
+    '<button class="iconbtn" data-act="settings" aria-label="设置">'+icon('sliders')+'</button></div>';
+
+  var types = [{id:'auto',label:'自动'}].concat(MEALS);
+  var typeSeg = types.map(function(t){
+    var lb = t.id==='auto' ? '自动('+M[guessType()].label+')' : t.label;
+    return '<button class="fbtn'+(ui.pickType===t.id?' on':'')+'" data-act="pf" data-k="pickType" data-v="'+t.id+'">'+lb+'</button>';
+  }).join('');
+
+  var pool = pickPool();
+  var shown = lastPick ? lastPick.name : '🤔';
+  var sub = lastPick ? '来自'+lastPick.from+(lastPick.note?' · '+lastPick.note:'')
+                     : ('候选 '+pool.length+' 个，优先推你最近没吃的');
+  var top = topFoods(30).slice(0,6);
+
+  return '<div class="anim">'+
+    '<div class="card pick">'+
+      '<div class="slot'+(lastPick?' final':'')+'" id="slot">'+esc(shown)+'</div>'+
+      '<div class="pick-sub" id="psub">'+esc(sub)+'</div>'+
+      '<div class="pfilters">'+typeSeg+'</div>'+
+      '<div class="bigbtns">'+
+        '<button class="btn btn-pri" data-act="roll">'+icon('shuffle')+(lastPick?'再抽一次':'帮我决定')+'</button>'+
+        (lastPick?'<button class="btn btn-line" data-act="accept">'+icon('check')+'吃了</button>':'')+
+      '</div>'+
+      '<div class="switchrow">'+
+        '<button class="sw'+(ui.pickRecent?' on':'')+'" data-act="ptoggle" role="switch" aria-checked="'+ui.pickRecent+'" aria-label="包含最近吃过的"></button>'+
+        '<span>把「最近吃过的」也放进来</span>'+
+      '</div>'+
+      (top.length?'<div class="pickhist"><h3>最近 30 天最常吃</h3><div class="ph-list">'+
+        top.map(function(t){ return '<button class="ph" data-act="chip" data-name="'+esc(t.name)+'" data-type="'+(ui.pickType==='auto'?guessType():ui.pickType)+'">'+esc(t.name)+' <b>×'+t.n+'</b></button>'; }).join('')+
+      '</div></div>':'')+
+    '</div>'+
+    '<div class="sec">'+
+      '<div class="sec-h"><h2>抽选规则</h2></div>'+
+      '<div class="card" style="padding:14px;color:var(--ink-2);font-size:13.5px;line-height:1.7">'+
+        '候选来自你的<b>常吃清单</b>和<b>最近 45 天的记录</b>；<br>'+
+        '最近 3 次抽中的会自动跳过，吃过越久的越容易被抽到。<br>'+
+        '<button data-act="settings" style="color:var(--primary);font-weight:700;margin-top:4px">去管理常吃清单 →</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+function doRoll(){
+  var pool = pickPool();
+  if(!pool.length){ toast('候选是空的，先去设置里加几个常吃'); return; }
+  var slot = document.getElementById('slot');
+  var psub = document.getElementById('psub');
+  if(!slot) return;
+  if(rollTimer) clearInterval(rollTimer);
+  slot.className = 'slot rolling'; slot.textContent = '…';
+  var tick = 0;
+  rollTimer = setInterval(function(){
+    slot.textContent = pool[Math.floor(Math.random()*pool.length)].name;
+    tick++;
+  }, 55);
+  setTimeout(function(){
+    clearInterval(rollTimer); rollTimer = null;
+    // 加权：很久没吃 / 没吃过 的权重更高
+    var lastEat = {};
+    state.meals.forEach(function(m){ var k=nameKey(m.name); if(!lastEat[k]||m.date>lastEat[k]) lastEat[k]=m.date; });
+    var weighted = pool.map(function(p){
+      var le = lastEat[nameKey(p.name)], w = 1;
+      if(!le) w = 1.8;
+      else { var dd = diffDays(today(), le); w = dd<=2 ? .35 : dd<=7 ? .7 : dd<=21 ? 1.1 : 1.6; }
+      return {p:p, w:w};
+    });
+    var tot = weighted.reduce(function(a,x){return a+x.w;},0), r = Math.random()*tot, acc=0, hit=weighted[0];
+    for(var i=0;i<weighted.length;i++){ acc+=weighted[i].w; if(r<=acc){ hit=weighted[i]; break; } }
+    var le2 = lastEat[nameKey(hit.p.name)];
+    lastPick = {name:hit.p.name, from:hit.p.from, note: le2 ? ('上次吃是'+relDay(le2)) : '还没记录过'};
+    state.recentPicks = (state.recentPicks||[]).concat([nameKey(hit.p.name)]).slice(-3);
+    save();
+    slot.className = 'slot final';
+    slot.style.fontSize = hit.p.name.length>7 ? '21px' : '27px';
+    slot.textContent = hit.p.name;
+    psub.textContent = '来自'+lastPick.from+' · '+lastPick.note;
+    // 更新按钮区
+    var bs = document.querySelector('.bigbtns');
+    if(bs) bs.outerHTML = '<div class="bigbtns"><button class="btn btn-pri" data-act="roll">'+icon('shuffle')+'再抽一次</button>'+
+      '<button class="btn btn-line" data-act="accept">'+icon('check')+'吃了</button></div>';
+  }, 850);
+}
+
+/* ---------------- views: stats ---------------- */
+function viewStats(){
+  document.getElementById('hd').innerHTML =
+    '<div class="hrow"><div class="htitle">'+
+      '<div class="hdate">最近 7 天 · 自动统计</div>'+
+      '<div class="hhi">我的<em>吃饭数据</em></div>'+
+    '</div>'+
+    '<button class="iconbtn" data-act="settings" aria-label="设置">'+icon('sliders')+'</button></div>';
+
+  var days = lastNDays(7);
+  var recent = state.meals.filter(function(m){ return m.date >= days[0]; });
+  var cost = sumCost(recent), out = recent.filter(function(m){ return m.place==='takeout'||m.place==='restaurant'; }).length;
+  var home = recent.filter(function(m){ return m.place==='home'; }).length;
+  var avg = avgRating(recent);
+  var st = streak();
+
+  var per = {}; days.forEach(function(d){ per[d] = sumCost(state.meals.filter(function(m){ return m.date===d; })); });
+  var max = Math.max.apply(null, days.map(function(d){ return per[d]; }).concat([1]));
+  var bars = days.map(function(d){
+    var v = per[d], hgt = v>0 ? Math.max(6, Math.round(v/max*96)) : 3;
+    var lab = relDay(d); lab = lab==='今天'?'今天':(parseYmd(d).getMonth()+1)+'/'+parseYmd(d).getDate();
+    return '<div class="bcol'+(v?'':' zero')+(d===today()?' today':'')+'">'+
+      '<div class="amt">'+(v?'¥'+money(v):'')+'</div>'+
+      '<div class="btrack"><div class="colbar" style="height:'+hgt+'px"></div></div>'+
+      '<div class="lb">'+lab+'</div></div>';
+  }).join('');
+
+  var tops = topFoods(30).slice(0,5);
+  var tmax = tops.length ? tops[0].n : 1;
+  var rank = tops.length ? '<div class="rank">'+tops.map(function(t,i){
+    return '<div class="rk"><div class="no'+(i===0?' top':'')+'">'+(i+1)+'</div>'+
+      '<div class="nm"><div class="t">'+esc(t.name)+'<span>×'+t.n+'</span></div>'+
+      '<div class="bar"><i style="width:'+Math.round(t.n/tmax*100)+'%;background:'+(i===0?'var(--primary)':'#FFB58A')+'"></i></div></div>'+
+      '<div class="ct">'+t.n+' 次</div></div>';
+  }).join('')+'</div>' : '<div class="empty">还没有记录，先去今天的页面记一笔</div>';
+
+  var dist = placeDist(7);
+  var order = ['home','takeout','restaurant','canteen','other'];
+  var distRows = order.filter(function(k){ return dist.map[k]; }).map(function(k){
+    var p = PL[k], pc = Math.round(dist.map[k]/dist.total*100);
+    return '<div class="row"><div class="lbl">'+p.emoji+' '+p.label+'</div>'+
+      '<div class="bar"><i style="width:'+pc+'%;background:'+(k==='home'?'var(--green)':k==='takeout'?'var(--orange)':k==='restaurant'?'var(--purple)':'var(--blue)')+'"></i></div>'+
+      '<div class="pc">'+pc+'%</div></div>';
+  }).join('');
+
+  var outsidePc = recent.length ? Math.round(out/recent.length*100) : 0;
+
+  return '<div class="anim">'+
+    '<div class="kpis">'+
+      '<div class="kpi"><div class="v">'+recent.length+'<small>顿</small></div><div class="k">'+icon('bowl')+'最近 7 天记录</div></div>'+
+      '<div class="kpi"><div class="v">'+st+'<small>天</small></div><div class="k">'+icon('flame')+'连续记录</div></div>'+
+      '<div class="kpi"><div class="v">¥'+money(Math.round(cost))+'</div><div class="k">'+icon('wallet')+'7 天吃饭花费</div></div>'+
+      '<div class="kpi"><div class="v">'+outsidePc+'<small>%</small></div><div class="k">'+icon('clock')+'在外面吃</div></div>'+
+    '</div>'+
+    '<div class="sec"><div class="sec-h"><h2>每天花了多少</h2><span class="sp"></span><span class="mini">近 7 天</span></div>'+
+      '<div class="card chart"><div class="bars" role="img" aria-label="近七天每天吃饭花费">'+bars+'</div></div></div>'+
+    '<div class="sec"><div class="sec-h"><h2>最常吃</h2><span class="sp"></span><span class="mini">近 30 天</span></div>'+
+      '<div class="card">'+rank+'</div></div>'+
+    '<div class="sec"><div class="sec-h"><h2>在哪儿吃</h2><span class="sp"></span><span class="mini">近 7 天</span></div>'+
+      '<div class="card dist">'+(distRows||'<div class="empty">还没有带地点的记录<br><span style="font-size:12.5px">用「+ 记一笔带详情」可以填地点和花费</span></div>')+'</div></div>'+
+    '<div class="sec"><div class="sec-h"><h2>小结</h2></div>'+
+      '<div class="card" style="padding:14px;font-size:13.5px;line-height:1.75;color:var(--ink-2)">'+
+        summary(recent, {cost:cost, out:out, home:home, avg:avg, st:st})+
+      '</div></div>'+
+  '</div>';
+}
+function summary(list, k){
+  if(!list.length) return '还没有数据。去「今天」页面记两笔，这里就会有很有意思的统计。';
+  var s = [];
+  if(k.st>=3) s.push('你已经连续记录 <b>'+k.st+' 天</b>了，保持住。');
+  if(k.cost>0) s.push('7 天在吃饭上共花了 <b>¥'+money(Math.round(k.cost))+'</b>，平均每天约 ¥'+money(Math.round(k.cost/7))+'。');
+  if(k.home+k.out>0){
+    s.push('其中 <b>'+k.home+' 顿</b>是自己做的，<b>'+k.out+' 顿</b>是外卖/下馆子。'+(k.home>k.out?'在家吃更多，省得也不错。':k.out>k.home?'外面吃得偏多，可以挑一天自己做。':'一半一半。'));
+  }
+  if(k.avg>0) s.push('有评分的餐平均 <b>'+k.avg.toFixed(1)+' 分</b>。');
+  return s.join('<br>');
+}
+
+/* ---------------- render ---------------- */
+function render(){
+  var app = document.getElementById('app');
+  var v = ui.tab==='today'?viewToday():ui.tab==='history'?viewHistory():ui.tab==='pick'?viewPick():viewStats();
+  app.innerHTML = v;
+  document.getElementById('nav').innerHTML = [
+    {id:'today',n:'今天',i:'bowl'},
+    {id:'history',n:'历史',i:'cal'},
+    {id:'pick',n:'吃啥',i:'shuffle'},
+    {id:'stats',n:'统计',i:'chart'}
+  ].map(function(t){
+    return '<button data-act="tab" data-t="'+t.id+'" class="'+(ui.tab===t.id?'on':'')+'">'+icon(t.i)+'<span>'+t.n+'</span></button>';
+  }).join('');
+  wire();
+}
+function wire(){
+  var qi = document.getElementById('qi');
+  if(!qi) return;
+  var go = document.querySelector('.qgo');
+  var sync = function(){ go.disabled = !qi.value.trim(); };
+  qi.addEventListener('input', sync);
+  qi.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); quickAdd(); } });
+}
+
+/* ---------------- actions ---------------- */
+function quickAdd(){
+  var qi = document.getElementById('qi'); if(!qi || !qi.value.trim()) return;
+  var name = qi.value.trim(), type = ui.qtype==='auto' ? guessType() : ui.qtype;
+  var m = addMeal({name:name, type:type});
+  if(!m) return;
+  qi.value=''; document.querySelector('.qgo').disabled = true;
+  // 判断今天这一餐是否常吃
+  var known = {};
+  state.presets.forEach(function(p){ known[nameKey(p.name)]=1; });
+  if(!known[nameKey(name)]){
+    state.presets.push({id:uid(), name:name, types:[type]}); save();
+  }
+  undoableAdd(m);
+}
+function openAdd(pref){
+  draft = {type:pref.type || guessType(), place:'', cost:'', rating:0, name:pref.name||'', date:pref.date||today()};
+  var chips = presetsFor(draft.type).slice(0,12);
+  var dLabel = draft.date===today() ? '只有内容是必填的，其他都可以跳过'
+               : '正在补记 <b style="color:var(--primary)">'+relDay(draft.date)+'</b>（'+draft.date+'）的饭';
+  openSheet('记一笔', dLabel, 
+    '<div class="field"><label>吃了什么 *</label>'+
+      '<input class="inp" id="fName" placeholder="比如 番茄鸡蛋盖饭" value="'+esc(draft.name)+'" autocomplete="off"></div>'+
+    '<div class="field"><label>这算哪一餐</label><div class="picks" id="fType">'+
+      MEALS.map(function(m){ return '<button class="pk'+(m.id===draft.type?' on':'')+'" data-act="ftype" data-v="'+m.id+'">'+m.emoji+' '+m.label+'</button>'; }).join('')+
+    '</div></div>'+
+    (chips.length?'<div class="field"><label>常吃的一键填</label><div class="picks">'+
+      chips.map(function(p){ return '<button class="pk" data-act="fname" data-v="'+esc(p.name)+'">'+esc(p.name)+'</button>'; }).join('')+
+    '</div></div>':'')+
+    '<div class="field"><label>在哪儿吃的</label><div class="picks" id="fPlace">'+
+      PLACES.map(function(p){ return '<button class="pk" data-act="fplace" data-v="'+p.id+'">'+p.emoji+' '+p.label+'</button>'; }).join('')+
+    '</div></div>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>花了多少（元）</label><input class="inp" id="fCost" type="number" inputmode="decimal" placeholder="可留空" value="'+esc(draft.cost)+'"></div>'+
+      '<div class="field"><label>好吃吗</label><div class="rate" id="fRate">'+
+        [1,2,3,4,5].map(function(i){ return '<button data-act="frate" data-v="'+i+'" class="'+(draft.rating>=i?'on':'')+'" aria-label="'+i+'分">'+icon('star')+'</button>'; }).join('')+
+      '</div></div>'+
+    '</div>'+
+    '<div class="field"><label>备注</label><textarea class="inp" id="fNote" placeholder="和谁吃的、好不好吃…（可留空）"></textarea></div>'+
+    '<div class="rowbtns"><button class="btn btn-line" data-act="close">取消</button>'+
+    '<button class="btn btn-pri" data-act="fsave">'+icon('check')+'保存</button></div>'
+  );
+  setTimeout(function(){ var el=document.getElementById('fName'); if(el) el.focus(); }, 260);
+}
+function saveAdd(){
+  var n = document.getElementById('fName');
+  if(!n || !n.value.trim()){ toast('先写一下吃了什么'); return; }
+  var s = document.getElementById('sheet');
+  var m = addMeal({
+    name: n.value, type: draft.type, date: draft.date,
+    place: draft.place,
+    cost: (document.getElementById('fCost')||{}).value || '',
+    rating: draft.rating,
+    note: (document.getElementById('fNote')||{}).value || ''
+  });
+  closeSheet();
+  if(m) undoableAdd(m);
+}
+
+/* ---------------- settings sheet ---------------- */
+function openSettings(){
+  var byType = {};
+  MEALS.forEach(function(m){ byType[m.id] = state.presets.filter(function(p){ return p.types && p.types.indexOf(m.id)>=0; }); });
+  var noType = state.presets.filter(function(p){ return !p.types || !p.types.length; });
+  var groups = MEALS.map(function(mt){
+    var list = byType[mt.id].concat(noType.length?[]:[]);
+    return '<div class="field"><label>'+mt.emoji+' '+mt.label+'（'+list.length+'）</label><div class="picks">'+
+      (list.length? list.map(function(p){
+        return '<button class="pk" data-act="pdel" data-id="'+p.id+'" title="点一下删除">'+esc(p.name)+' ✕</button>';
+      }).join('') : '<span style="font-size:12.5px;color:var(--muted)">还没有</span>')+
+    '</div></div>';
+  }).join('');
+
+  openSheet('设置', '数据存在这台设备的浏览器里，不会上传',
+    '<div class="field"><label>加一个常吃的（会出现在快捷按钮里）</label>'+
+      '<div class="picks" style="margin-bottom:8px">'+
+        MEALS.map(function(m){ return '<button class="pk'+(m.id===(draft.presetType||guessType())?' on':'')+'" data-act="ptype" data-v="'+m.id+'">'+m.label+'</button>'; }).join('')+
+      '</div>'+
+      '<div style="display:flex;gap:8px"><input class="inp" id="pName" placeholder="比如 兰州拉面" autocomplete="off">'+
+      '<button class="btn btn-pri" style="flex:0 0 auto;padding:0 18px" data-act="padd">'+icon('plus')+'加</button></div>'+
+    '</div>'+
+    '<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">'+groups+'</div>'+
+    '<div style="border-top:1px solid var(--line);margin-top:6px">'+
+      '<button class="rowact" data-act="exp-json"><div><div class="t">导出备份（JSON）</div><div class="s">换手机 / 换浏览器时用它恢复</div></div>'+icon('dl')+'</button>'+
+      '<button class="rowact" data-act="exp-csv"><div><div class="t">导出表格（CSV）</div><div class="s">可以用 Excel / 备忘录打开</div></div>'+icon('dl')+'</button>'+
+      '<button class="rowact" data-act="imp"><div><div class="t">导入备份</div><div class="s">选择之前导出的 JSON 文件</div></div>'+icon('ul')+'</button>'+
+      '<button class="rowact" data-act="demo"><div><div class="t">载入示例数据</div><div class="s">想看统计长什么样？一键填两周记录</div></div>'+icon('sparkle')+'</button>'+
+      '<button class="rowact danger" data-act="wipe"><div><div class="t">清空全部记录</div><div class="s">只删记录，常吃清单保留</div></div>'+icon('trash')+'</button>'+
+    '</div>'+
+    '<div class="rowbtns"><button class="btn btn-line" data-act="close">关闭</button></div>'
+  );
+}
+
+/* ---------------- demo / export / import ---------------- */
+function loadDemo(){
+  var demo = [
+    ['breakfast',['豆浆油条','小笼包','燕麦牛奶','三明治','皮蛋瘦肉粥','煎饼果子','水煮蛋+牛奶']],
+    ['lunch',['兰州拉面','黄焖鸡米饭','番茄鸡蛋盖饭','沙县小吃','麻辣烫','猪脚饭','蛋炒饭','轻食沙拉','麦当劳']],
+    ['dinner',['火锅','饺子','麻辣香锅','烤肉拌饭','寿司','重庆小面','螺蛳粉','番茄鸡蛋盖饭','牛肉面']]
+  ];
+  var places = ['home','home','takeout','takeout','restaurant','canteen'];
+  for(var i=13;i>=0;i--){
+    var d = ymd(addDays(new Date(), -i));
+    var n = 2 + (i%2);
+    for(var k=0;k<n;k++){
+      var g = demo[k===0?0:(k===1?(i%3===0?1:2):1)];
+      var name = g[1][Math.floor(Math.random()*g[1].length)];
+      var h = k===0?7+Math.floor(Math.random()*3):(k===1?11+Math.floor(Math.random()*2):18+Math.floor(Math.random()*2));
+      var pl = places[Math.floor(Math.random()*places.length)];
+      var base = pl==='home'?12:pl==='canteen'?15:pl==='takeout'?28:55;
+      state.meals.push({
+        id:uid(), date:d, type:g[0], name:name, place:pl,
+        cost:base+Math.floor(Math.random()*18),
+        rating: 3+Math.floor(Math.random()*3),
+        note:'', ts: parseYmd(d).getTime()+h*3600000
+      });
+    }
+    if(i%4===0){
+      state.meals.push({id:uid(), date:d, type:'snack', name:['奶茶','咖啡','水果','酸奶'][i%4], place:'takeout', cost:15, rating:0, note:'', ts:parseYmd(d).getTime()+15*3600000});
+    }
+  }
+  save(); render(); closeSheet(); toast('已载入示例数据，去「统计」看看');
+}
+function download(name, text, mime){
+  var blob = new Blob(['\ufeff'+text], {type:(mime||'text/plain')+';charset=utf-8'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 800);
+}
+function exportJSON(){
+  download('吃饭日记备份-'+today()+'.json', JSON.stringify({v:1, meals:state.meals, presets:state.presets}, null, 2), 'application/json');
+  toast('备份已导出');
+}
+function exportCSV(){
+  var rows = [['日期','餐次','吃了什么','地点','花费','评分','备注']];
+  sortMeals(state.meals).forEach(function(m){
+    rows.push([m.date, (M[m.type]||{}).label||'', m.name, (PL[m.place]||{}).label||'', m.cost||'', m.rating||'', (m.note||'').replace(/[\r\n,]/g,' ')]);
+  });
+  var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\r\n');
+  download('吃饭日记-'+today()+'.csv', csv, 'text/csv');
+  toast('表格已导出');
+}
+document.getElementById('fileIn').addEventListener('change', function(e){
+  var f = e.target.files && e.target.files[0]; if(!f) return;
+  var fr = new FileReader();
+  fr.onload = function(){
+    try{
+      var o = JSON.parse(fr.result);
+      if(!o || !Array.isArray(o.meals)) throw 0;
+      state.meals = o.meals;
+      if(Array.isArray(o.presets) && o.presets.length) state.presets = o.presets;
+      save(); render(); closeSheet();
+      toast('已导入 '+o.meals.length+' 条记录');
+    }catch(err){ toast('这个文件读不出来，确认是导出的 JSON'); }
+  };
+  fr.readAsText(f);
+  e.target.value = '';
+});
+
+/* ---------------- event delegation ---------------- */
+document.addEventListener('click', function(e){
+  var el = e.target.closest('[data-act]'); if(!el) return;
+  var a = el.getAttribute('data-act');
+  switch(a){
+    case 'tab': ui.tab = el.getAttribute('data-t'); window.scrollTo({top:0,behavior:'smooth'}); render(); break;
+    case 'qtype': ui.qtype = el.getAttribute('data-v'); render(); var q=document.getElementById('qi'); if(q) q.focus(); break;
+    case 'chip': {
+      var nm = el.getAttribute('data-name'), tp = el.getAttribute('data-type');
+      var m = addMeal({name:nm, type:tp});
+      if(m) undoableAdd(m);
+      break;
+    }
+    case 'open-add': openAdd({type:el.getAttribute('data-type')||guessType()}); break;
+    case 'add-on': openAdd({type:guessType(), date:el.getAttribute('data-d')}); break;
+    case 'del': {
+      var id = el.getAttribute('data-id');
+      var gone = state.meals.filter(function(x){ return x.id===id; })[0];
+      state.meals = state.meals.filter(function(x){ return x.id!==id; });
+      save(); render();
+      if(gone) toast('已删除 <b>'+esc(gone.name)+'</b>', {action:'撤销', onAction:function(){ state.meals.push(gone); save(); render(); }});
+      break;
+    }
+    case 'qadd': quickAdd(); break;
+    case 'mprev': ui.histMonth = new Date(ui.histMonth.getFullYear(), ui.histMonth.getMonth()-1, 1); render(); break;
+    case 'mnext': ui.histMonth = new Date(ui.histMonth.getFullYear(), ui.histMonth.getMonth()+1, 1); render(); break;
+    case 'mtoday': ui.histMonth = new Date(); ui.selDate = today(); render(); break;
+    case 'day': ui.selDate = el.getAttribute('data-d'); render(); break;
+    case 'pf': ui['pickType'] = el.getAttribute('data-v'); lastPick=null; render(); break;
+    case 'ptoggle': ui.pickRecent = !ui.pickRecent; render(); break;
+    case 'roll': doRoll(); break;
+    case 'accept': if(lastPick){ var t2 = ui.pickType==='auto'?guessType():ui.pickType; var m2 = addMeal({name:lastPick.name, type:t2}); if(m2) undoableAdd(m2); } break;
+    case 'settings': openSettings(); break;
+    case 'close': closeSheet(); break;
+    case 'ftype': draft.type = el.getAttribute('data-v');
+      Array.prototype.forEach.call(document.querySelectorAll('#fType .pk'), function(b){ b.classList.toggle('on', b===el); });
+      break;
+    case 'fplace': draft.place = (draft.place===el.getAttribute('data-v')) ? '' : el.getAttribute('data-v');
+      Array.prototype.forEach.call(document.querySelectorAll('#fPlace .pk'), function(b){ b.classList.toggle('on', b.getAttribute('data-v')===draft.place); });
+      break;
+    case 'frate': { var v = +el.getAttribute('data-v'); draft.rating = (draft.rating===v?0:v);
+      Array.prototype.forEach.call(document.querySelectorAll('#fRate button'), function(b){ b.classList.toggle('on', +b.getAttribute('data-v')<=draft.rating); });
+      break; }
+    case 'fname': { var fi = document.getElementById('fName'); if(fi){ fi.value = el.getAttribute('data-v'); } break; }
+    case 'fsave': saveAdd(); break;
+    case 'ptype': draft.presetType = el.getAttribute('data-v');
+      Array.prototype.forEach.call(document.querySelectorAll('[data-act="ptype"]'), function(b){ b.classList.toggle('on', b===el); });
+      break;
+    case 'padd': {
+      var pi = document.getElementById('pName'); var nm2 = pi.value.trim();
+      if(!nm2){ toast('先写个名字'); break; }
+      var ty = draft.presetType || guessType();
+      state.presets.push({id:uid(), name:nm2, types:[ty]});
+      save(); toast('已加入常吃清单'); openSettings(); render();
+      break;
+    }
+    case 'pdel': {
+      var pid = el.getAttribute('data-id');
+      var idx = -1; state.presets.forEach(function(p,i){ if(p.id===pid) idx=i; });
+      if(idx<0) break;
+      var rm = state.presets.splice(idx,1)[0]; save(); openSettings(); render();
+      toast('已删除 <b>'+esc(rm.name)+'</b>', {action:'撤销', onAction:function(){ state.presets.splice(idx,0,rm); save(); openSettings(); render(); }});
+      break;
+    }
+    case 'exp-json': exportJSON(); break;
+    case 'exp-csv': exportCSV(); break;
+    case 'imp': document.getElementById('fileIn').click(); break;
+    case 'demo': loadDemo(); break;
+    case 'wipe':
+      if(!confirm('清空全部 '+state.meals.length+' 条记录？此操作不可恢复。')) break;
+      state.meals = []; save(); closeSheet(); render(); toast('记录已清空');
+      break;
+  }
+});
+
+/* ---------------- boot ---------------- */
+state = load();
+if(!state.recentPicks) state.recentPicks = [];
+render();
+window.addEventListener('visibilitychange', function(){ if(!document.hidden) render(); });
+})();
+</script>
+</body>
+</html>
