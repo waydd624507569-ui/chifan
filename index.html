@@ -238,6 +238,17 @@ main{padding:6px 16px calc(112px + var(--safe-b))}
 #lightbox .closex{position:absolute;top:calc(18px + env(safe-area-inset-top,0px));right:18px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center}
 #lightbox .closex svg{width:19px;height:19px}
 
+/* ---------- 备份提示条 ---------- */
+.bk{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:11px 12px 11px 13px;border-radius:14px;background:var(--gold-soft);border:1px solid #F2DFB3}
+.bk .t{flex:1;min-width:0;font-size:12.5px;color:#8A6414;line-height:1.45}
+.bk .t b{font-weight:750}
+.bk .go{flex:none;background:#E0A21B;color:#fff;font-weight:750;font-size:12.5px;padding:8px 12px;border-radius:10px}
+.bk .go:active{background:#C88C12}
+.bk .x{flex:none;width:24px;height:24px;display:grid;place-items:center;color:#C0A365;border-radius:8px}
+.bk .x svg{width:15px;height:15px}
+.tl-item[data-act="edit"]{cursor:pointer}
+.tl-item[data-act="edit"]:active{background:#FDF7F1;border-radius:12px}
+
 /* ---------- bottom nav ---------- */
 nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:440px;z-index:40;padding:8px 12px calc(8px + var(--safe-b));background:linear-gradient(180deg,rgba(253,247,240,.72),var(--bg) 45%);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .navin{display:flex;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:19px;box-shadow:0 -2px 20px -8px rgba(60,35,15,.22);padding:5px;gap:2px}
@@ -397,6 +408,8 @@ function load(){
   if(raw){ try{ s = JSON.parse(raw); }catch(e){ s=null; } }
   if(!s || typeof s!=='object') s = {};
   if(!Array.isArray(s.meals)) s.meals = [];
+  if(typeof s.lastBackup !== 'string') s.lastBackup = '';
+  if(typeof s.backupSnooze !== 'string') s.backupSnooze = '';
   if(!Array.isArray(s.presets) || !s.presets.length){
     s.presets = DEF_PRESETS.map(function(p){ return {id:uid(), name:p[0], types:p[1].slice()}; });
   }
@@ -656,7 +669,11 @@ function hydratePhotos(){
   Array.prototype.forEach.call(nodes, function(el){
     if(el.getAttribute('src')) return;
     var id = el.getAttribute('data-photo');
-    photoURL(id).then(function(u){ if(u && el.isConnected) el.src = u; });
+    photoURL(id).then(function(u){
+      if(!el.isConnected) return;
+      if(u){ el.src = u; }
+      else { el.style.display = 'none'; }   // 图没了（被清空/被系统回收）就别显示破图
+    });
   });
 }
 // 回收没有被任何记录引用的照片（删除记录后延迟执行，这样「撤销」还救得回来）
@@ -704,6 +721,29 @@ function undoableAdd(m, label){
   render();
 }
 
+/* ---------------- 备份提醒 ---------------- */
+function backupStatusText(){
+  if(!state.lastBackup) return '还没备份过 · 含照片，换手机时用它恢复';
+  var d = diffDays(today(), state.lastBackup);
+  return '上次备份：' + (d===0?'今天':d===1?'昨天':d+' 天前') + ' · 含照片';
+}
+function markBackup(){
+  state.lastBackup = today();
+  state.backupSnooze = '';
+  save();
+  if(ui.tab === 'today') render();
+}
+function backupBanner(){
+  if(state.meals.length < 5) return '';                       // 刚上手先不打扰
+  if(state.backupSnooze && today() < state.backupSnooze) return '';
+  var never = !state.lastBackup;
+  if(!never && diffDays(today(), state.lastBackup) < 7) return '';
+  var txt = never ? '还没有导出过备份' : '上次备份是 <b>'+diffDays(today(), state.lastBackup)+' 天前</b>';
+  return '<div class="bk"><div class="t">'+txt+'，<br>记录只存在这台设备，清了就找不回</div>'+
+    '<button class="go" data-act="exp-json">导出</button>'+
+    '<button class="x" data-act="backup-snooze" aria-label="稍后提醒">'+icon('x')+'</button></div>';
+}
+
 /* ---------------- shared row ---------------- */
 function tagHtml(m, mt){
   var pl = m.place && PL[m.place];
@@ -714,8 +754,8 @@ function tagHtml(m, mt){
   '</div>';
 }
 function mealRow(m, mt){
-  var ph = m.photo ? '<img class="thumb" data-photo="'+esc(m.photo)+'" data-act="view-photo" data-id="'+m.id+'" alt="'+esc(m.name)+'的照片">' : '';
-  return '<div class="tl-item">'+
+  var ph = m.photo ? '<img class="thumb" data-photo="'+esc(m.photo)+'" data-act="view-photo" data-id="'+m.id+'" alt="" title="查看照片">' : '';
+  return '<div class="tl-item" data-act="edit" data-id="'+m.id+'" role="button" aria-label="编辑 '+esc(m.name)+'">'+
     '<div class="tl-dot" style="background:'+mt.soft+';color:'+mt.c+'">'+mt.emoji+'</div>'+
     '<div class="tl-body">'+
       '<div class="tl-top"><span class="tl-name">'+esc(m.name)+'</span>'+
@@ -783,6 +823,7 @@ function viewToday(){
 
   var cost = sumCost(list), r = avgRating(list);
   return '<div class="anim">'+
+    backupBanner()+
     '<div class="card quick">'+
       '<div class="qrow">'+
         '<div class="qinput">'+icon('bowl')+'<input id="qi" placeholder="刚吃了什么？一句话就行" enterkeyhint="done" autocomplete="off">'+'</div>'+
@@ -1084,12 +1125,26 @@ function quickAdd(){
 }
 function openAdd(pref){
   if(draft.photoURL) URL.revokeObjectURL(draft.photoURL);
-  draft = {type:pref.type || guessType(), place:'', cost:'', rating:0, name:pref.name||'',
-           date:pref.date||today(), photoBlob:null, photoURL:''};
+  draft = {mode:'add', type:pref.type || guessType(), place:'', cost:'', rating:0, name:pref.name||'',
+           note:'', date:pref.date||today(), photoBlob:null, photoURL:'', photoId:''};
+  renderEditor();
+}
+function openEdit(id){
+  var m = state.meals.filter(function(x){ return x.id === id; })[0];
+  if(!m) return;
+  if(draft.photoURL) URL.revokeObjectURL(draft.photoURL);
+  draft = {mode:'edit', id:id, type:m.type, place:m.place||'', cost:m.cost||'', rating:m.rating||0,
+           name:m.name, note:m.note||'', date:m.date,
+           photoBlob:null, photoURL:'', photoId:m.photo||''};
+  renderEditor();
+}
+function renderEditor(){
   var chips = presetsFor(draft.type).slice(0,12);
-  var dLabel = draft.date===today() ? '只有内容是必填的，其他都可以跳过'
+  var isEdit = draft.mode === 'edit';
+  var dLabel = isEdit ? '改完点保存就行'
+               : draft.date===today() ? '只有内容是必填的，其他都可以跳过'
                : '正在补记 <b style="color:var(--primary)">'+relDay(draft.date)+'</b>（'+draft.date+'）的饭';
-  openSheet('记一笔', dLabel, 
+  openSheet(isEdit ? '改一笔' : '记一笔', dLabel, 
     '<div class="field"><label>吃了什么 *</label>'+
       '<input class="inp" id="fName" placeholder="比如 番茄鸡蛋盖饭" value="'+esc(draft.name)+'" autocomplete="off"></div>'+
     '<div class="field"><label>这算哪一餐</label><div class="picks" id="fType">'+
@@ -1098,6 +1153,7 @@ function openAdd(pref){
     (chips.length?'<div class="field"><label>常吃的一键填</label><div class="picks">'+
       chips.map(function(p){ return '<button class="pk" data-act="fname" data-v="'+esc(p.name)+'">'+esc(p.name)+'</button>'; }).join('')+
     '</div></div>':'')+
+    (isEdit?'<div class="field"><label>记在哪天</label><input class="inp" type="date" id="fDate" value="'+esc(draft.date)+'"></div>':'')+
     '<div class="field"><label>照片</label><div class="pfield" id="fPWrap">'+photoFieldInner(false)+'</div></div>'+
     '<div class="field"><label>在哪儿吃的</label><div class="picks" id="fPlace">'+
       PLACES.map(function(p){ return '<button class="pk" data-act="fplace" data-v="'+p.id+'">'+p.emoji+' '+p.label+'</button>'; }).join('')+
@@ -1108,10 +1164,11 @@ function openAdd(pref){
         [1,2,3,4,5].map(function(i){ return '<button data-act="frate" data-v="'+i+'" class="'+(draft.rating>=i?'on':'')+'" aria-label="'+i+'分">'+icon('star')+'</button>'; }).join('')+
       '</div></div>'+
     '</div>'+
-    '<div class="field"><label>备注</label><textarea class="inp" id="fNote" placeholder="和谁吃的、好不好吃…（可留空）"></textarea></div>'+
+    '<div class="field"><label>备注</label><textarea class="inp" id="fNote" placeholder="和谁吃的、好不好吃…（可留空）">'+esc(draft.note)+'</textarea></div>'+
     '<div class="rowbtns"><button class="btn btn-line" data-act="close">取消</button>'+
-    '<button class="btn btn-pri" data-act="fsave">'+icon('check')+'保存</button></div>'
+    '<button class="btn btn-pri" data-act="fsave">'+icon('check')+(isEdit?'保存修改':'保存')+'</button></div>'
   );
+  if(isEdit) hydratePhotos();   // 让原来那张照片显示出来
   setTimeout(function(){ var el=document.getElementById('fName'); if(el) el.focus(); }, 260);
 }
 function photoFieldInner(busy){
@@ -1119,9 +1176,13 @@ function photoFieldInner(busy){
   if(busy){
     inner = '<div class="pwrap"><div class="busy">压缩中…</div></div><div class="pnote">正在压缩照片…</div>';
   }else if(draft.photoURL){
-    inner = '<div class="pwrap"><img src="'+draft.photoURL+'" alt="照片预览">'+
+    inner = '<div class="pwrap" data-act="fppick" title="点一下换一张"><img src="'+draft.photoURL+'" alt="照片预览">'+
       '<button class="rm" data-act="fprem" aria-label="移除照片">'+icon('x')+'</button></div>'+
-      '<div class="pnote">已选好，保存后会压缩存在本机<br>不会上传到任何服务器</div>';
+      '<div class="pnote">已选好，保存后会压缩存在本机<br>点图片可换一张</div>';
+  }else if(draft.photoId){
+    inner = '<div class="pwrap" data-act="fppick" title="点一下换一张"><img data-photo="'+esc(draft.photoId)+'" alt="">'+
+      '<button class="rm" data-act="fprem" aria-label="移除照片">'+icon('x')+'</button></div>'+
+      '<div class="pnote">这张是原来拍的，点一下可换<br>保存后不会丢</div>';
   }else{
     inner = '<button class="pick-photo" data-act="fppick">'+icon('camera')+'<span>加照片</span></button>'+
       '<div class="pnote">拍一张，或从相册挑一张<br>自动压缩，不会太占空间</div>';
@@ -1154,6 +1215,42 @@ document.addEventListener('change', function(e){
 function saveAdd(){
   var n = document.getElementById('fName');
   if(!n || !n.value.trim()){ toast('先写一下吃了什么'); return; }
+  var fCost = document.getElementById('fCost'), fNote = document.getElementById('fNote');
+  var fDate = document.getElementById('fDate');
+  var blob = draft.photoBlob, purl = draft.photoURL;   // 两个分支都要用，必须先声明
+
+  if(draft.mode === 'edit'){
+    var em = state.meals.filter(function(x){ return x.id === draft.id; })[0];
+    if(!em){ closeSheet(); return; }
+    em.name = n.value.trim();
+    em.type = draft.type;
+    em.date = (fDate && fDate.value) || draft.date;
+    em.place = draft.place;
+    em.cost = (fCost && fCost.value !== '') ? (Number(fCost.value) || 0) : 0;
+    em.rating = draft.rating;
+    em.note = (fNote ? fNote.value : '').trim();
+    var oldPhoto = em.photo;
+    if(blob){
+      em.photo = em.id;
+      photoPut(em.id, blob).then(function(){
+        dropPhotoURL(em.id); render(); hydratePhotos();
+      }).catch(function(){
+        em.photo = oldPhoto || ''; save(); render();
+        toast('新照片没存下（可能空间不足），其他改动已保存');
+      });
+      dropPhotoURL(em.id);
+    }else if(!draft.photoId){
+      em.photo = '';
+      if(oldPhoto){ photoDel(oldPhoto); dropPhotoURL(oldPhoto); }
+    }else{
+      em.photo = draft.photoId;
+    }
+    draft.photoBlob = null; draft.photoURL = ''; draft.photoId = '';
+    if(purl) URL.revokeObjectURL(purl);
+    save(); closeSheet(); render();
+    toast('已更新 <b>'+esc(em.name)+'</b>');
+    return;
+  }
   var m = addMeal({
     name: n.value, type: draft.type, date: draft.date,
     place: draft.place,
@@ -1161,7 +1258,6 @@ function saveAdd(){
     rating: draft.rating,
     note: (document.getElementById('fNote')||{}).value || ''
   });
-  var blob = draft.photoBlob, purl = draft.photoURL;
   draft.photoBlob = null; draft.photoURL = '';
   closeSheet();
   if(!m) return;
@@ -1217,7 +1313,7 @@ function openSettings(){
     '</div>'+
     '<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">'+groups+'</div>'+
     '<div style="border-top:1px solid var(--line);margin-top:6px">'+
-      '<button class="rowact" data-act="exp-json"><div><div class="t">导出备份（JSON）</div><div class="s">换手机 / 换浏览器时用它恢复，含照片</div></div>'+icon('dl')+'</button>'+
+      '<button class="rowact" data-act="exp-json"><div><div class="t">导出备份（JSON）</div><div class="s">'+backupStatusText()+'</div></div>'+icon('dl')+'</button>'+
       '<button class="rowact" data-act="exp-csv"><div><div class="t">导出表格（CSV）</div><div class="s">可以用 Excel / 备忘录打开</div></div>'+icon('dl')+'</button>'+
       '<button class="rowact" data-act="imp"><div><div class="t">导入备份</div><div class="s">选择之前导出的 JSON 文件</div></div>'+icon('ul')+'</button>'+
       '<button class="rowact" data-act="demo"><div><div class="t">载入示例数据</div><div class="s">想看统计长什么样？一键填两周记录</div></div>'+icon('sparkle')+'</button>'+
@@ -1280,10 +1376,12 @@ function exportJSON(){
       download('吃了么备份-'+today()+'.json',
         JSON.stringify({v:2, exportedAt:new Date().toISOString(), meals:state.meals, presets:state.presets, photos:photos}),
         'application/json');
+      markBackup();
       toast('已导出 '+state.meals.length+' 条记录'+(list.length?'、'+list.length+' 张照片':''));
     });
   }).catch(function(){
     download('吃了么备份-'+today()+'.json', JSON.stringify({v:2, meals:state.meals, presets:state.presets, photos:{}}), 'application/json');
+    markBackup();
     toast('已导出记录（照片导出失败）');
   });
 }
@@ -1357,16 +1455,18 @@ document.addEventListener('click', function(e){
     case 'fppick': { var fp = document.getElementById('fPhoto'); if(fp) fp.click(); break; }
     case 'fprem':
       if(draft.photoURL){ URL.revokeObjectURL(draft.photoURL); }
-      draft.photoBlob = null; draft.photoURL = '';
+      draft.photoBlob = null; draft.photoURL = ''; draft.photoId = '';
       refreshPhotoField();
       break;
+    case 'edit': openEdit(el.getAttribute('data-id')); break;
     case 'view-photo': openPhoto(el.getAttribute('data-id')); break;
     case 'close-photo': closePhoto(); break;
     case 'wipe-photos':
       if(!confirm('清空所有照片？记录会保留，只是没有图了。')) break;
       clearPhotos().then(function(){
         Object.keys(photoURLs).forEach(dropPhotoURL);
-        save(); render(); closeSheet(); toast('照片已清空');
+        state.meals.forEach(function(m){ if(m.photo) m.photo = ''; });   // 引用也要清，否则界面会留破图
+        save(); render(); closeSheet(); toast('照片已清空，记录都保留着');
       });
       break;
     case 'ftype': draft.type = el.getAttribute('data-v');
@@ -1399,6 +1499,10 @@ document.addEventListener('click', function(e){
       toast('已删除 <b>'+esc(rm.name)+'</b>', {action:'撤销', onAction:function(){ state.presets.splice(idx,0,rm); save(); openSettings(); render(); }});
       break;
     }
+    case 'backup-snooze':
+      state.backupSnooze = ymd(addDays(new Date(), 3));
+      save(); render(); toast('好的，3 天后再提醒');
+      break;
     case 'exp-json': exportJSON(); break;
     case 'exp-csv': exportCSV(); break;
     case 'imp': document.getElementById('fileIn').click(); break;
