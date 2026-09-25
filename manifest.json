@@ -1,6 +1,6 @@
 {
-  "name": "吃饭日记",
-  "short_name": "吃饭日记",
+  "name": "吃了么",
+  "short_name": "吃了么",
   "description": "记录每天吃了什么：一句话记下，常吃的一键记录，选择困难还能抽签决定。",
   "lang": "zh-CN",
   "start_url": "./",
