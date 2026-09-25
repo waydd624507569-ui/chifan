@@ -1,5 +1,5 @@
 /* 吃了么 Service Worker —— 让应用能离线打开 */
-var CACHE = 'chifan-v3';
+var CACHE = 'chifan-v4';
 var SHELL = [
   './', './index.html', './manifest.json',
   './assets/icon-192.png', './assets/icon-512.png',
@@ -30,15 +30,21 @@ self.addEventListener('fetch', function(e){
   try { url = new URL(req.url); } catch(err) { return; }
   if(url.origin !== self.location.origin) return;
 
-  // 页面：先要网络（保证能拿到新版本），失败再回缓存 → 离线可用
+  // 页面：先用缓存秒开，同时在后台更新
+  // （原来是"先要网络"，弱网下会干等网络超时——实测能卡 8 秒以上）
   if(req.mode === 'navigate'){
     e.respondWith(
-      fetch(req).then(function(res){
-        var copy = res.clone();
-        caches.open(CACHE).then(function(c){ c.put(req, copy); });
-        return res;
-      }).catch(function(){
-        return caches.match(req).then(function(hit){ return hit || caches.match('./index.html'); });
+      caches.match(req).then(function(hit){
+        if(hit){
+          refresh(req);                 // 后台更新，下次打开就是新版
+          return hit;
+        }
+        return fetch(req).then(function(res){
+          if(res && res.ok){ var c = res.clone(); caches.open(CACHE).then(function(ca){ ca.put(req, c); }); }
+          return res;
+        }).catch(function(){
+          return caches.match('./index.html');
+        });
       })
     );
     return;
@@ -47,11 +53,19 @@ self.addEventListener('fetch', function(e){
   // 静态资源：先给缓存（快），同时后台更新
   e.respondWith(
     caches.match(req).then(function(hit){
-      var net = fetch(req).then(function(res){
-        if(res && res.ok) caches.open(CACHE).then(function(c){ c.put(req, res.clone()); });
-        return res;
-      }).catch(function(){ return hit; });
+      var net = refresh(req);
       return hit || net;
     })
   );
 });
+
+// 后台拉新版并写回缓存；失败就算了，不影响已经返回的缓存内容
+function refresh(req){
+  return fetch(req).then(function(res){
+    if(res && res.ok){
+      var copy = res.clone();
+      caches.open(CACHE).then(function(c){ c.put(req, copy); });
+    }
+    return res;
+  }).catch(function(){ return null; });
+}
