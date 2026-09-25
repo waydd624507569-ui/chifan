@@ -1296,6 +1296,72 @@ document.getElementById('lightbox').addEventListener('click', function(e){
   if(e.target === this) closePhoto();
 });
 
+/* ---------------- 导入备份（必须先问，不能直接覆盖）---------------- */
+var pendingImport = null;
+function openImportSheet(){
+  var p = pendingImport; if(!p) return;
+  var pCount = p.meals.length;
+  var pPhotos = Object.keys(p.photos || {}).length;
+  var cur = state.meals.length;
+  var when = p.exportedAt ? String(p.exportedAt).slice(0,10) : '未记录';
+  openSheet('导入备份', '',
+    '<div class="card" style="padding:14px;box-shadow:none;background:var(--surface-2);font-size:13.5px;line-height:1.95;color:var(--ink-2)">'+
+      '备份里：<b>'+pCount+' 条记录</b>'+(pPhotos?'、<b>'+pPhotos+' 张照片</b>':'')+'<br>'+
+      '导出时间：'+esc(when)+'<br>'+
+      '你现在有：<b>'+cur+' 条记录</b>'+
+    '</div>'+
+    '<div class="field" style="margin-top:16px">'+
+      '<button class="btn btn-pri" style="width:100%" data-act="imp-merge">'+icon('plus')+'合并到现有记录</button>'+
+      '<div class="pnote" style="margin-top:8px">保留本机记录，只把备份里没有的补进来。同一条记录以本机为准，不会重复。</div>'+
+    '</div>'+
+    '<div class="field">'+
+      '<button class="btn btn-line" style="width:100%;color:var(--red);border-color:#F0CFCF" data-act="imp-replace">替换全部记录</button>'+
+      '<div class="pnote" style="margin-top:8px">删掉本机现有的 '+cur+' 条记录，完全变成备份的样子。'+
+        (cur?'<b style="color:var(--red)">本机数据会丢失。</b>':'')+'</div>'+
+    '</div>'+
+    '<div class="rowbtns"><button class="btn btn-line" data-act="close">取消</button></div>');
+}
+function runImport(mode){
+  var p = pendingImport; if(!p) return;
+  var photos = p.photos || {};
+  var have = {};
+  state.meals.forEach(function(m){ have[m.id] = 1; });
+  var added = 0, skipped = 0, newIds = [];
+
+  if(mode === 'merge'){
+    p.meals.forEach(function(m){
+      if(!m || !m.id || have[m.id]){ if(m && m.id) skipped++; return; }
+      state.meals.push(m); have[m.id] = 1; added++; newIds.push(m.id);
+    });
+    var seen = {};
+    state.presets.forEach(function(x){ seen[nameKey(x.name)] = 1; });
+    (p.presets || []).forEach(function(x){
+      if(x && x.name && !seen[nameKey(x.name)]){ state.presets.push(x); seen[nameKey(x.name)] = 1; }
+    });
+  }else{
+    state.meals = p.meals.slice();
+    if(Array.isArray(p.presets) && p.presets.length) state.presets = p.presets.slice();
+    added = state.meals.length;
+    newIds = Object.keys(photos);
+  }
+
+  // 只写"确实需要保留"的照片，避免覆盖本机已有的同名照片
+  var jobs = [];
+  newIds.forEach(function(id){
+    if(!photos[id]) return;
+    try{ jobs.push(photoPut(id, dataURLtoBlob(photos[id]))); }catch(e){}
+  });
+  Promise.all(jobs).then(function(){
+    pendingImport = null;
+    save();
+    if(mode !== 'merge') gcPhotos();     // 替换后，不再被引用的照片回收掉
+    render(); closeSheet();
+    toast(mode === 'merge'
+      ? ('已合并：新增 '+added+' 条'+(skipped?'，跳过 '+skipped+' 条重复':''))
+      : ('已替换为备份里的 '+added+' 条记录'));
+  });
+}
+
 /* ---------------- settings sheet ---------------- */
 function openSettings(){
   var byType = {};
@@ -1322,7 +1388,7 @@ function openSettings(){
     '<div style="border-top:1px solid var(--line);margin-top:6px">'+
       '<button class="rowact" data-act="exp-json"><div><div class="t">导出备份（JSON）</div><div class="s">'+backupStatusText()+'</div></div>'+icon('dl')+'</button>'+
       '<button class="rowact" data-act="exp-csv"><div><div class="t">导出表格（CSV）</div><div class="s">可以用 Excel / 备忘录打开</div></div>'+icon('dl')+'</button>'+
-      '<button class="rowact" data-act="imp"><div><div class="t">导入备份</div><div class="s">选择之前导出的 JSON 文件</div></div>'+icon('ul')+'</button>'+
+      '<button class="rowact" data-act="imp"><div><div class="t">导入备份</div><div class="s">可选「合并」或「替换」，导入前会先让你确认</div></div>'+icon('ul')+'</button>'+
       '<button class="rowact" data-act="demo"><div><div class="t">载入示例数据</div><div class="s">想看统计长什么样？一键填两周记录</div></div>'+icon('sparkle')+'</button>'+
       '<button class="rowact" data-act="wipe-photos"><div><div class="t">清空所有照片</div><div class="s" id="pstat">正在统计…</div></div>'+icon('camera')+'</button>'+
       '<button class="rowact danger" data-act="wipe"><div><div class="t">清空全部记录</div><div class="s">只删记录，常吃清单保留</div></div>'+icon('trash')+'</button>'+
@@ -1408,16 +1474,8 @@ document.getElementById('fileIn').addEventListener('change', function(e){
     try{
       var o = JSON.parse(fr.result);
       if(!o || !Array.isArray(o.meals)) throw 0;
-      state.meals = o.meals;
-      if(Array.isArray(o.presets) && o.presets.length) state.presets = o.presets;
-      var ph = o.photos || {}, ids = Object.keys(ph);
-      var jobs = ids.map(function(id){
-        try{ return photoPut(id, dataURLtoBlob(ph[id])); }catch(e){ return Promise.resolve(); }
-      });
-      Promise.all(jobs).then(function(){
-        save(); render(); closeSheet();
-        toast('已导入 '+o.meals.length+' 条记录'+(ids.length?'、'+ids.length+' 张照片':''));
-      });
+      pendingImport = o;            // 先不落地，让用户选合并还是替换
+      openImportSheet();
     }catch(err){ toast('这个文件读不出来，确认是导出的 JSON'); }
   };
   fr.readAsText(f);
@@ -1513,6 +1571,8 @@ document.addEventListener('click', function(e){
     case 'exp-json': exportJSON(); break;
     case 'exp-csv': exportCSV(); break;
     case 'imp': document.getElementById('fileIn').click(); break;
+    case 'imp-merge': runImport('merge'); break;
+    case 'imp-replace': runImport('replace'); break;
     case 'demo': loadDemo(); break;
     case 'wipe':
       if(!confirm('清空全部 '+state.meals.length+' 条记录？此操作不可恢复。')) break;
