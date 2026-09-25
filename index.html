@@ -416,6 +416,9 @@ function load(){
   if(!s || typeof s!=='object') s = {};
   if(!Array.isArray(s.meals)) s.meals = [];
   if(typeof s.lastBackup !== 'string') s.lastBackup = '';
+  if(!s.tombstones || typeof s.tombstones !== 'object' || Array.isArray(s.tombstones)) s.tombstones = {};
+  if(!s.sync || typeof s.sync !== 'object') s.sync = {url:'', key:'', code:'', enabled:false, lastSync:0, lastError:''};
+  if(typeof s.sync.lastSync !== 'number') s.sync.lastSync = 0;
   if(typeof s.backupSnooze !== 'string') s.backupSnooze = '';
   if(!Array.isArray(s.presets) || !s.presets.length){
     s.presets = DEF_PRESETS.map(function(p){ return {id:uid(), name:p[0], types:p[1].slice()}; });
@@ -711,13 +714,15 @@ function addMeal(o){
     rating: Number(o.rating)||0,
     note: (o.note||'').trim(),
     photo: o.photo || '',
-    ts: now.getTime()
+    ts: now.getTime(),
+    updatedAt: now.getTime()
   };
   if(!m.name) return null;
   state.meals.push(m); save();
   return m;
 }
 function undoableAdd(m, label){
+  queueSync();
   toast('已记录 <b>'+esc(m.name)+'</b>', {
     action:'撤销',
     onAction:function(){
@@ -1236,6 +1241,7 @@ function saveAdd(){
     em.cost = (fCost && fCost.value !== '') ? (Number(fCost.value) || 0) : 0;
     em.rating = draft.rating;
     em.note = (fNote ? fNote.value : '').trim();
+    em.updatedAt = Date.now();
     var oldPhoto = em.photo;
     if(blob){
       em.photo = em.id;
@@ -1254,7 +1260,7 @@ function saveAdd(){
     }
     draft.photoBlob = null; draft.photoURL = ''; draft.photoId = '';
     if(purl) URL.revokeObjectURL(purl);
-    save(); closeSheet(); render();
+    save(); closeSheet(); render(); queueSync();
     toast('已更新 <b>'+esc(em.name)+'</b>');
     return;
   }
@@ -1295,6 +1301,145 @@ function closePhoto(){ document.getElementById('lightbox').classList.remove('on'
 document.getElementById('lightbox').addEventListener('click', function(e){
   if(e.target === this) closePhoto();
 });
+
+/* ---------------- 云同步（Supabase，无需注册账号）----------------
+   表开了 RLS 且不给策略，只暴露两个函数；必须知道同步码才能读写，
+   所以拿着公开的 anon key 也列不走别人的数据。 */
+function syncConf(){ return state.sync || {}; }
+function syncReady(){ var c = syncConf(); return !!(c.enabled && c.url && c.key && c.code); }
+function syncUrl(pathTail){ return String(syncConf().url||'').replace(/\/+$/,'') + '/rest/v1/' + pathTail; }
+function sbCall(fn, body){
+  var c = syncConf();
+  return fetch(syncUrl('rpc/'+fn), {
+    method:'POST',
+    headers:{ 'apikey':c.key, 'Authorization':'Bearer '+c.key, 'Content-Type':'application/json' },
+    body:JSON.stringify(body)
+  }).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error('Supabase '+r.status+' '+t.slice(0,100)); });
+    return r.text();
+  }).then(function(t){ return t ? JSON.parse(t) : null; });
+}
+function newSyncCode(){
+  var abc='ABCDEFGHJKLMNPQRSTUVWXYZ23456789', out='';
+  for(var i=0;i<20;i++) out += abc[Math.floor(Math.random()*abc.length)];
+  return out.replace(/(.{5})(?=.)/g,'$1-');
+}
+// 双向合并：同一条记录比 updatedAt，谁新用谁；墓碑比时间，删掉的不会复活
+function mergeData(local, remote){
+  remote = remote || {};
+  var byId = {}, stamp = function(m){ return (m && (m.updatedAt || m.ts)) || 0; };
+  function take(m){
+    if(!m || !m.id) return;
+    var cur = byId[m.id];
+    if(!cur || stamp(m) > stamp(cur)) byId[m.id] = m;
+  }
+  (local.meals||[]).forEach(take);
+  (remote.meals||[]).forEach(take);
+  var tomb = {};
+  [local.tombstones, remote.tombstones].forEach(function(src){
+    if(!src) return;
+    Object.keys(src).forEach(function(k){ tomb[k] = Math.max(tomb[k]||0, src[k]||0); });
+  });
+  var meals = Object.keys(byId).map(function(k){ return byId[k]; }).filter(function(m){
+    var d = tomb[m.id];
+    return !(d && d >= stamp(m));
+  });
+  var seen = {}, presets = [];
+  [(local.presets||[]), (remote.presets||[])].forEach(function(list){
+    (list||[]).forEach(function(p){
+      if(!p || !p.name) return;
+      var k = nameKey(p.name);
+      if(seen[k]) return;
+      seen[k] = 1; presets.push(p);
+    });
+  });
+  return {meals:meals, presets:presets, tombstones:tomb};
+}
+var syncing = false, syncTimer = null;
+function queueSync(){
+  if(!syncReady()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(function(){ syncNow(); }, 2500);
+}
+function syncNow(opts){
+  opts = opts || {};
+  if(!syncReady() || syncing) return Promise.resolve(false);
+  if(!navigator.onLine){ if(opts.manual) toast('现在没有网络'); return Promise.resolve(false); }
+  syncing = true;
+  if(opts.manual) setSyncStatus('正在同步…');
+  return sbCall('chifan_get', {p_code: syncConf().code}).then(function(remote){
+    var merged = mergeData(state, remote);
+    state.meals = merged.meals;
+    state.presets = merged.presets;
+    state.tombstones = merged.tombstones;
+    var payload = {app:'chifan', v:1, updatedAt:Date.now(),
+                   meals:state.meals, presets:state.presets, tombstones:state.tombstones};
+    return sbCall('chifan_put', {p_code: syncConf().code, p_data: payload}).then(function(){
+      syncing = false;
+      state.sync.lastSync = Date.now();
+      state.sync.lastError = '';
+      save(); render();
+      if(opts.manual) toast('同步完成');
+      return true;
+    });
+  }).catch(function(e){
+    syncing = false;
+    state.sync.lastError = String((e && e.message) || e).slice(0,140);
+    save();
+    if(opts.manual){ render(); toast('同步失败：'+state.sync.lastError.slice(0,60)); }
+    return false;
+  });
+}
+function setSyncStatus(txt){
+  var el = document.getElementById('syncStatus');
+  if(el) el.textContent = txt;
+}
+function syncStatusText(){
+  var c = syncConf();
+  if(!c.enabled) return '未开启';
+  if(c.lastError) return '同步出错：'+c.lastError;
+  if(!c.lastSync) return '还没同步过';
+  var d = Date.now() - c.lastSync;
+  var m = Math.floor(d/60000);
+  if(m < 1) return '刚刚同步过';
+  if(m < 60) return m+' 分钟前同步过';
+  var h = Math.floor(m/60);
+  if(h < 24) return h+' 小时前同步过';
+  return Math.floor(h/24)+' 天前同步过';
+}
+function applySyncLink(){
+  var m = /[#&]sync=([^&]+)/.exec(location.hash||'');
+  if(!m) return false;
+  try{
+    var o = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1])))));
+    if(!o.u || !o.k || !o.c) return false;
+    state.sync = {url:o.u, key:o.k, code:o.c, enabled:true, lastSync:0, lastError:''};
+    save();
+    try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+    return true;
+  }catch(e){ return false; }
+}
+function openSyncSheet(){
+  var c = syncConf();
+  openSheet('云同步', '两台设备填同一份配置就能共用一份记录',
+    '<div class="field"><label>Supabase 项目地址</label>'+
+      '<input class="inp" id="syUrl" placeholder="https://xxxx.supabase.co" value="'+esc(c.url)+'" autocomplete="off" autocapitalize="off" spellcheck="false"></div>'+
+    '<div class="field"><label>anon public key</label>'+
+      '<input class="inp" id="syKey" placeholder="eyJhbGciOi..." value="'+esc(c.key)+'" autocomplete="off" autocapitalize="off" spellcheck="false"></div>'+
+    '<div class="field"><label>同步码 <span style="color:var(--muted);font-weight:400">（两台设备必须一模一样）</span></label>'+
+      '<div style="display:flex;gap:8px"><input class="inp" id="syCode" placeholder="点右边生成" value="'+esc(c.code)+'" autocomplete="off" autocapitalize="off" spellcheck="false">'+
+      '<button class="btn btn-line" style="flex:0 0 auto;padding:0 14px" data-act="sy-gen">生成</button></div></div>'+
+    '<div class="rowbtns"><button class="btn btn-line" data-act="close">取消</button>'+
+      '<button class="btn btn-pri" data-act="sy-save">'+icon('check')+'保存并同步</button></div>'+
+    (c.enabled ? '<div style="border-top:1px solid var(--line);margin-top:18px;padding-top:14px">'+
+      '<div style="font-size:13px;color:var(--muted);margin-bottom:10px">当前状态：<b style="color:var(--ink-2)" id="syncStatus">'+esc(syncStatusText())+'</b></div>'+
+      '<button class="btn btn-line" style="width:100%" data-act="sy-now">'+icon('rotate')+'立即同步</button>'+
+      '<div class="pnote" style="margin-top:8px">想再拉一台设备进来？把配置链接发给它，打开就自动配好。</div>'+
+      '<button class="btn btn-line" style="width:100%;margin-top:8px" data-act="sy-link">'+icon('ul')+'复制配置链接</button>'+
+      '<div class="pnote" style="margin-top:10px;color:var(--muted)">注意：照片不会同步（体积太大），只同步记录和常吃清单。</div>'+
+      '<button class="btn btn-line" style="width:100%;margin-top:10px;color:var(--red);border-color:#F0CFCF" data-act="sy-off">关闭云同步</button>'+
+    '</div>' : ''));
+}
 
 /* ---------------- 导入备份（必须先问，不能直接覆盖）---------------- */
 var pendingImport = null;
@@ -1386,6 +1531,7 @@ function openSettings(){
     '</div>'+
     '<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">'+groups+'</div>'+
     '<div style="border-top:1px solid var(--line);margin-top:6px">'+
+      '<button class="rowact" data-act="sync"><div><div class="t">云同步</div><div class="s" id="syncRowSub">'+esc(syncStatusText())+'</div></div>'+icon('rotate')+'</button>'+
       '<button class="rowact" data-act="exp-json"><div><div class="t">导出备份（JSON）</div><div class="s">'+backupStatusText()+'</div></div>'+icon('dl')+'</button>'+
       '<button class="rowact" data-act="exp-csv"><div><div class="t">导出表格（CSV）</div><div class="s">可以用 Excel / 备忘录打开</div></div>'+icon('dl')+'</button>'+
       '<button class="rowact" data-act="imp"><div><div class="t">导入备份</div><div class="s">可选「合并」或「替换」，导入前会先让你确认</div></div>'+icon('ul')+'</button>'+
@@ -1431,6 +1577,18 @@ function loadDemo(){
     }
   }
   save(); render(); closeSheet(); toast('已载入示例数据，去「统计」看看');
+}
+function copyText(txt, okMsg){
+  var done = function(){ toast(okMsg || '已复制'); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done, function(){ toast('复制失败，请手动选中'); });
+  }else{
+    var ta = document.createElement('textarea');
+    ta.value = txt; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ toast('复制失败'); }
+    ta.remove();
+  }
 }
 function download(name, text, mime){
   var blob = new Blob(['\ufeff'+text], {type:(mime||'text/plain')+';charset=utf-8'});
@@ -1501,9 +1659,13 @@ document.addEventListener('click', function(e){
       var id = el.getAttribute('data-id');
       var gone = state.meals.filter(function(x){ return x.id===id; })[0];
       state.meals = state.meals.filter(function(x){ return x.id!==id; });
-      save(); render();
+      state.tombstones[id] = Date.now();          // 记住"这条被删了"，否则另一端会把它复活
+      save(); render(); queueSync();
       setTimeout(gcPhotos, 6500);
-      if(gone) toast('已删除 <b>'+esc(gone.name)+'</b>', {action:'撤销', onAction:function(){ state.meals.push(gone); save(); render(); }});
+      if(gone) toast('已删除 <b>'+esc(gone.name)+'</b>', {action:'撤销', onAction:function(){
+        delete state.tombstones[id];              // 撤销了就把墓碑一起撤掉
+        state.meals.push(gone); save(); render(); queueSync();
+      }});
       break;
     }
     case 'qadd': quickAdd(); break;
@@ -1571,6 +1733,28 @@ document.addEventListener('click', function(e){
     case 'exp-json': exportJSON(); break;
     case 'exp-csv': exportCSV(); break;
     case 'imp': document.getElementById('fileIn').click(); break;
+    case 'sync': openSyncSheet(); break;
+    case 'sy-gen': { var g=document.getElementById('syCode'); if(g) g.value = newSyncCode(); break; }
+    case 'sy-save': {
+      var u=(document.getElementById('syUrl')||{}).value||'', k=(document.getElementById('syKey')||{}).value||'', cd=(document.getElementById('syCode')||{}).value||'';
+      u=u.trim(); k=k.trim(); cd=cd.trim();
+      if(!u || !k || !cd){ toast('三项都要填：地址、key、同步码'); break; }
+      state.sync = {url:u, key:k, code:cd, enabled:true, lastSync:0, lastError:''};
+      save(); closeSheet(); render();
+      syncNow({manual:true});
+      break;
+    }
+    case 'sy-now': syncNow({manual:true}); break;
+    case 'sy-link': {
+      var payload = btoa(unescape(encodeURIComponent(JSON.stringify({u:syncConf().url,k:syncConf().key,c:syncConf().code}))));
+      var link = location.origin + location.pathname + '#sync=' + encodeURIComponent(payload);
+      copyText(link, '配置链接已复制，发给另一台设备打开即可');
+      break;
+    }
+    case 'sy-off':
+      if(!confirm('关闭云同步？本机记录会保留，但不再和另一台设备同步。')) break;
+      state.sync.enabled = false; save(); closeSheet(); render(); toast('已关闭云同步');
+      break;
     case 'imp-merge': runImport('merge'); break;
     case 'imp-replace': runImport('replace'); break;
     case 'demo': loadDemo(); break;
@@ -1593,7 +1777,9 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http') === 0){
 
 state = load();
 if(!state.recentPicks) state.recentPicks = [];
+if(applySyncLink()) toast('云同步配置好了，正在拉取记录');
 render();
+if(syncReady()) setTimeout(function(){ syncNow(); }, 1200);
 setTimeout(gcPhotos, 1500);   // 回收上次遗留的孤儿照片
 window.addEventListener('visibilitychange', function(){ if(!document.hidden) render(); });
 })();
