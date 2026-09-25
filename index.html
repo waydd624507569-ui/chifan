@@ -6,14 +6,14 @@
 <meta name="theme-color" content="#FFF6ED">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="吃饭日记">
+<meta name="apple-mobile-web-app-title" content="吃了么">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-startup-image" media="(device-width:390px) and (device-height:844px) and (-webkit-device-pixel-ratio:3)" href="assets/splash-1170x2532.png">
 <link rel="apple-touch-startup-image" media="(device-width:393px) and (device-height:852px) and (-webkit-device-pixel-ratio:3)" href="assets/splash-1179x2556.png">
 <link rel="apple-touch-startup-image" media="(device-width:430px) and (device-height:932px) and (-webkit-device-pixel-ratio:3)" href="assets/splash-1290x2796.png">
-<title>吃饭日记</title>
+<title>吃了么</title>
 <style>
 :root{
   --bg:#FDF7F0;
@@ -314,7 +314,7 @@ textarea.inp{resize:none;min-height:66px;line-height:1.5}
 <input type="file" id="fileIn" accept="application/json,.json" class="sr">
 <script>
 /* ============================================================
-   吃饭日记 — 单文件离线小应用
+   吃了么 — 单文件离线小应用
    数据只存在本机浏览器 localStorage，不上传任何服务器
    ============================================================ */
 (function(){
@@ -1277,13 +1277,13 @@ function exportJSON(){
       jobs.push(blobToDataURL(it.blob).then(function(d){ photos[it.id] = d; }).catch(function(){}));
     });
     return Promise.all(jobs).then(function(){
-      download('吃饭日记备份-'+today()+'.json',
+      download('吃了么备份-'+today()+'.json',
         JSON.stringify({v:2, exportedAt:new Date().toISOString(), meals:state.meals, presets:state.presets, photos:photos}),
         'application/json');
       toast('已导出 '+state.meals.length+' 条记录'+(list.length?'、'+list.length+' 张照片':''));
     });
   }).catch(function(){
-    download('吃饭日记备份-'+today()+'.json', JSON.stringify({v:2, meals:state.meals, presets:state.presets, photos:{}}), 'application/json');
+    download('吃了么备份-'+today()+'.json', JSON.stringify({v:2, meals:state.meals, presets:state.presets, photos:{}}), 'application/json');
     toast('已导出记录（照片导出失败）');
   });
 }
@@ -1293,7 +1293,7 @@ function exportCSV(){
     rows.push([m.date, (M[m.type]||{}).label||'', m.name, (PL[m.place]||{}).label||'', m.cost||'', m.rating||'', (m.note||'').replace(/[\r\n,]/g,' ')]);
   });
   var csv = rows.map(function(r){ return r.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(','); }).join('\r\n');
-  download('吃饭日记-'+today()+'.csv', csv, 'text/csv');
+  download('吃了么-'+today()+'.csv', csv, 'text/csv');
   toast('表格已导出');
 }
 document.getElementById('fileIn').addEventListener('change', function(e){
