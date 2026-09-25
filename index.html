@@ -212,6 +212,26 @@ main{padding:6px 16px calc(112px + var(--safe-b))}
 .dist .row .bar{flex:1}
 .dist .row .pc{width:38px;text-align:right;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;flex:none}
 
+/* ---------- photo ---------- */
+.thumb{width:58px;height:58px;flex:none;border-radius:13px;object-fit:cover;background:#F5ECE4;border:1px solid var(--line);cursor:pointer;transition:transform .12s;display:block}
+.thumb:active{transform:scale(.94)}
+.pfield{display:flex;align-items:center;gap:12px}
+.pick-photo{width:76px;height:76px;flex:none;border-radius:15px;border:1.5px dashed var(--line-2);background:var(--surface-2);display:grid;place-items:center;gap:1px;color:var(--muted);font-size:11.5px;font-weight:600}
+.pick-photo:active{background:var(--primary-soft);border-color:#FFD9C4;color:var(--primary-d)}
+.pick-photo svg{width:21px;height:21px}
+.pwrap{position:relative;flex:none;width:76px;height:76px}
+.pwrap img{width:76px;height:76px;border-radius:15px;object-fit:cover;display:block;background:#F5ECE4}
+.pwrap .rm{position:absolute;top:-7px;right:-7px;width:25px;height:25px;border-radius:50%;background:#2E2116;color:#fff;display:grid;place-items:center;box-shadow:0 3px 10px rgba(0,0,0,.35)}
+.pwrap .rm svg{width:13px;height:13px}
+.pwrap .busy{position:absolute;inset:0;border-radius:15px;background:rgba(255,255,255,.72);display:grid;place-items:center;font-size:11.5px;color:var(--ink-2);font-weight:600}
+.pnote{font-size:12px;color:var(--muted);line-height:1.55;min-width:0}
+#lightbox{position:fixed;inset:0;z-index:90;background:rgba(22,13,5,.93);display:none;align-items:center;justify-content:center;padding:18px}
+#lightbox.on{display:flex}
+#lightbox img{max-width:100%;max-height:78vh;border-radius:16px;box-shadow:0 30px 80px -20px rgba(0,0,0,.85)}
+#lightbox .cap{position:absolute;left:0;right:0;bottom:calc(30px + var(--safe-b));text-align:center;color:#fff;font-size:14px;opacity:.9;padding:0 24px;line-height:1.6}
+#lightbox .closex{position:absolute;top:calc(18px + env(safe-area-inset-top,0px));right:18px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;display:grid;place-items:center}
+#lightbox .closex svg{width:19px;height:19px}
+
 /* ---------- bottom nav ---------- */
 nav{position:fixed;left:50%;transform:translateX(-50%);bottom:0;width:100%;max-width:440px;z-index:40;padding:8px 12px calc(8px + var(--safe-b));background:linear-gradient(180deg,rgba(253,247,240,.72),var(--bg) 45%);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 .navin{display:flex;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:19px;box-shadow:0 -2px 20px -8px rgba(60,35,15,.22);padding:5px;gap:2px}
@@ -280,6 +300,11 @@ textarea.inp{resize:none;min-height:66px;line-height:1.5}
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="shTitle"></div>
 <div id="toasts" aria-live="polite"></div>
+<div id="lightbox" role="dialog" aria-modal="true" aria-label="吃饭照片">
+  <button class="closex" data-act="close-photo" aria-label="关闭">✕</button>
+  <img id="lbImg" alt="吃饭照片">
+  <div class="cap" id="lbCap"></div>
+</div>
 <input type="file" id="fileIn" accept="application/json,.json" class="sr">
 <script>
 /* ============================================================
@@ -312,7 +337,8 @@ var ICONS = {
   note:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
   sparkle:'<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
   user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3Z"/><circle cx="12" cy="13" r="3.2"/>'
 };
 function icon(n,cls){
   var filled = (n==='star');
@@ -495,6 +521,153 @@ function presetNames(){
   var o = {}; state.presets.forEach(function(p){ o[nameKey(p.name)] = 1; }); return o;
 }
 
+/* ---------------- photo store (IndexedDB) ----------------
+   照片单独存 IndexedDB：localStorage 只有 5MB，几十张照片就满了，
+   而且每次保存都要把 base64 重新序列化一遍。记录里只留一个 photo id。 */
+var DB_NAME='chifan-photos', DB_STORE='photos', dbp=null;
+function db(){
+  if(dbp) return dbp;
+  dbp = new Promise(function(res, rej){
+    if(!window.indexedDB){ rej(new Error('no-indexeddb')); return; }
+    var r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = function(){
+      var d = r.result;
+      if(!d.objectStoreNames.contains(DB_STORE)) d.createObjectStore(DB_STORE);
+    };
+    r.onsuccess = function(){ res(r.result); };
+    r.onerror = function(){ rej(r.error); };
+  });
+  return dbp;
+}
+function store(mode){
+  return db().then(function(d){ return d.transaction(DB_STORE, mode).objectStore(DB_STORE); });
+}
+function photoPut(id, blob){
+  return store('readwrite').then(function(st){
+    return new Promise(function(res, rej){
+      var q = st.put(blob, id);
+      q.onsuccess = function(){ res(id); };
+      q.onerror = function(){ rej(q.error || new Error('put failed')); };
+    });
+  });
+}
+function photoGet(id){
+  return store('readonly').then(function(st){
+    return new Promise(function(res){
+      var q = st.get(id);
+      q.onsuccess = function(){ res(q.result || null); };
+      q.onerror = function(){ res(null); };
+    });
+  }).catch(function(){ return null; });
+}
+function photoDel(id){
+  return store('readwrite').then(function(st){
+    return new Promise(function(res){
+      var q = st.delete(id);
+      q.onsuccess = function(){ res(true); };
+      q.onerror = function(){ res(false); };
+    });
+  }).catch(function(){ return false; });
+}
+function photoEntries(){
+  return store('readonly').then(function(st){
+    return new Promise(function(res){
+      var out = [], kq = st.getAllKeys(), vq = st.getAll(), gotK = false, gotV = false;
+      var flush = function(){
+        if(!gotK || !gotV) return;
+        var keys = kq.result || [], vals = vq.result || [];
+        keys.forEach(function(k, i){ out.push({id:k, blob:vals[i]}); });
+        res(out);
+      };
+      kq.onsuccess = function(){ gotK = true; flush(); };
+      vq.onsuccess = function(){ gotV = true; flush(); };
+      kq.onerror = vq.onerror = function(){ res([]); };
+    });
+  }).catch(function(){ return []; });
+}
+function clearPhotos(){
+  return store('readwrite').then(function(st){
+    return new Promise(function(res){
+      var q = st.clear();
+      q.onsuccess = function(){ res(true); };
+      q.onerror = function(){ res(false); };
+    });
+  }).catch(function(){ return false; });
+}
+
+// 把照片压到最长边 1080、JPEG 0.72，一张大概 100~200KB
+function compressImage(file, maxSide, quality){
+  maxSide = maxSide || 1080; quality = quality || 0.72;
+  return new Promise(function(res, rej){
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function(){
+      var w = img.naturalWidth, h = img.naturalHeight;
+      var sc = Math.min(1, maxSide / Math.max(w, h));
+      var cw = Math.max(1, Math.round(w*sc)), ch = Math.max(1, Math.round(h*sc));
+      var c = document.createElement('canvas');
+      c.width = cw; c.height = ch;
+      var ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cw, ch);   // 透明图转 JPEG 会变黑，先铺白底
+      ctx.drawImage(img, 0, 0, cw, ch);
+      URL.revokeObjectURL(url);
+      c.toBlob(function(b){ b ? res(b) : rej(new Error('compress failed')); }, 'image/jpeg', quality);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); rej(new Error('decode failed')); };
+    img.src = url;
+  });
+}
+function blobToDataURL(b){
+  return new Promise(function(res, rej){
+    var fr = new FileReader();
+    fr.onload = function(){ res(fr.result); };
+    fr.onerror = function(){ rej(fr.error); };
+    fr.readAsDataURL(b);
+  });
+}
+function dataURLtoBlob(d){
+  var parts = String(d).split(','), mime = (parts[0].match(/:(.*?);/) || [])[1] || 'image/jpeg';
+  var bin = atob(parts[1]), n = bin.length, u8 = new Uint8Array(n);
+  for(var i=0;i<n;i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], {type:mime});
+}
+
+// 同一个 id 只生成一次 objectURL，避免每次重绘都泄漏
+var photoURLs = {};
+function photoURL(id){
+  if(photoURLs[id]) return Promise.resolve(photoURLs[id]);
+  return photoGet(id).then(function(b){
+    if(!b) return null;
+    photoURLs[id] = URL.createObjectURL(b);
+    return photoURLs[id];
+  });
+}
+function dropPhotoURL(id){
+  if(photoURLs[id]){ URL.revokeObjectURL(photoURLs[id]); delete photoURLs[id]; }
+}
+// 重绘之后把缩略图的 src 补上
+function hydratePhotos(){
+  var nodes = document.querySelectorAll('img[data-photo]');
+  Array.prototype.forEach.call(nodes, function(el){
+    if(el.getAttribute('src')) return;
+    var id = el.getAttribute('data-photo');
+    photoURL(id).then(function(u){ if(u && el.isConnected) el.src = u; });
+  });
+}
+// 回收没有被任何记录引用的照片（删除记录后延迟执行，这样「撤销」还救得回来）
+function gcPhotos(){
+  var used = {};
+  state.meals.forEach(function(m){ if(m.photo) used[m.photo] = 1; });
+  photoEntries().then(function(list){
+    list.forEach(function(it){ if(!used[it.id]){ photoDel(it.id); dropPhotoURL(it.id); } });
+  });
+}
+function photoUsage(){
+  return photoEntries().then(function(list){
+    var bytes = list.reduce(function(a, it){ return a + (it.blob && it.blob.size || 0); }, 0);
+    return {count:list.length, bytes:bytes};
+  });
+}
+
 /* ---------------- write ---------------- */
 function addMeal(o){
   var now = new Date();
@@ -507,6 +680,7 @@ function addMeal(o){
     cost: (o.cost===''||o.cost==null) ? 0 : Number(o.cost)||0,
     rating: Number(o.rating)||0,
     note: (o.note||'').trim(),
+    photo: o.photo || '',
     ts: now.getTime()
   };
   if(!m.name) return null;
@@ -522,6 +696,30 @@ function undoableAdd(m, label){
     }
   });
   render();
+}
+
+/* ---------------- shared row ---------------- */
+function tagHtml(m, mt){
+  var pl = m.place && PL[m.place];
+  return '<div class="tl-tags">'+
+    (pl?'<span class="tag p-'+m.place+'">'+pl.emoji+' '+pl.label+'</span>':'')+
+    (m.cost>0?'<span class="tag money">¥'+money(m.cost)+'</span>':'')+
+    '<span class="tag">'+mt.label+'</span>'+
+  '</div>';
+}
+function mealRow(m, mt){
+  var ph = m.photo ? '<img class="thumb" data-photo="'+esc(m.photo)+'" data-act="view-photo" data-id="'+m.id+'" alt="'+esc(m.name)+'的照片">' : '';
+  return '<div class="tl-item">'+
+    '<div class="tl-dot" style="background:'+mt.soft+';color:'+mt.c+'">'+mt.emoji+'</div>'+
+    '<div class="tl-body">'+
+      '<div class="tl-top"><span class="tl-name">'+esc(m.name)+'</span>'+
+        (m.rating>0?'<span class="stars">'+'★'.repeat(m.rating)+'</span>':'')+'</div>'+
+      tagHtml(m, mt)+
+      (m.note?'<div class="tl-note">'+esc(m.note)+'</div>':'')+
+    '</div>'+
+    ph+
+    '<button class="del" data-act="del" data-id="'+m.id+'" aria-label="删除">'+icon('trash')+'</button>'+
+  '</div>';
 }
 
 /* ---------------- views: today ---------------- */
@@ -572,23 +770,7 @@ function viewToday(){
         '<div class="tl-body"><div class="tl-top"><span class="tl-name" style="color:#BFAE9F">还没记'+mt.label+'</span></div>'+
         '<div class="tl-tags"><span class="tag">点一下添加</span></div></div></button>';
     }else{
-      body = items.map(function(m){
-        var pl = m.place && PL[m.place];
-        return '<div class="tl-item">'+
-          '<div class="tl-dot" style="background:'+mt.soft+';color:'+mt.c+'">'+mt.emoji+'</div>'+
-          '<div class="tl-body">'+
-            '<div class="tl-top"><span class="tl-name">'+esc(m.name)+'</span>'+
-              (m.rating>0?'<span class="stars">'+'★'.repeat(m.rating)+'</span>':'')+'</div>'+
-            '<div class="tl-tags">'+
-              (pl?'<span class="tag p-'+(m.place)+'">'+pl.emoji+' '+pl.label+'</span>':'')+
-              (m.cost>0?'<span class="tag money">¥'+money(m.cost)+'</span>':'')+
-              '<span class="tag">'+mt.label+'</span>'+
-            '</div>'+
-            (m.note?'<div class="tl-note">'+esc(m.note)+'</div>':'')+
-          '</div>'+
-          '<button class="del" data-act="del" data-id="'+m.id+'" aria-label="删除">'+icon('trash')+'</button>'+
-        '</div>';
-      }).join('');
+      body = items.map(function(m){ return mealRow(m, mt); }).join('');
     }
     return '<div class="tl">'+body+'</div>';
   }).join('');
@@ -640,17 +822,7 @@ function viewHistory(){
   }
 
   var sel = sortMeals(byDate[ui.selDate]||[]);
-  var selBody = sel.length ? '<div class="tl">'+ sel.map(function(m){
-      var mt = M[m.type], pl = m.place && PL[m.place];
-      return '<div class="tl-item">'+
-        '<div class="tl-dot" style="background:'+mt.soft+';color:'+mt.c+'">'+mt.emoji+'</div>'+
-        '<div class="tl-body"><div class="tl-top"><span class="tl-name">'+esc(m.name)+'</span></div>'+
-        '<div class="tl-tags">'+(pl?'<span class="tag p-'+m.place+'">'+pl.emoji+' '+pl.label+'</span>':'')+
-        (m.cost>0?'<span class="tag money">¥'+money(m.cost)+'</span>':'')+'<span class="tag">'+mt.label+'</span>'+
-        (m.rating>0?'<span class="stars">'+'★'.repeat(m.rating)+'</span>':'')+'</div>'+
-        (m.note?'<div class="tl-note">'+esc(m.note)+'</div>':'')+'</div>'+
-        '<button class="del" data-act="del" data-id="'+m.id+'" aria-label="删除">'+icon('trash')+'</button></div>';
-    }).join('')+'</div>'
+  var selBody = sel.length ? '<div class="tl">'+ sel.map(function(m){ return mealRow(m, M[m.type]); }).join('')+'</div>'
     : '<div class="empty"><div class="big">🍽️</div>这天还没有记录<br><span style="font-size:12.5px">点右上角 + 可以补记</span></div>';
 
   return '<div class="anim">'+
@@ -869,6 +1041,7 @@ function render(){
   var app = document.getElementById('app');
   var v = ui.tab==='today'?viewToday():ui.tab==='history'?viewHistory():ui.tab==='pick'?viewPick():viewStats();
   app.innerHTML = v;
+  hydratePhotos();
   document.getElementById('nav').innerHTML = [
     {id:'today',n:'今天',i:'bowl'},
     {id:'history',n:'历史',i:'cal'},
@@ -904,7 +1077,9 @@ function quickAdd(){
   undoableAdd(m);
 }
 function openAdd(pref){
-  draft = {type:pref.type || guessType(), place:'', cost:'', rating:0, name:pref.name||'', date:pref.date||today()};
+  if(draft.photoURL) URL.revokeObjectURL(draft.photoURL);
+  draft = {type:pref.type || guessType(), place:'', cost:'', rating:0, name:pref.name||'',
+           date:pref.date||today(), photoBlob:null, photoURL:''};
   var chips = presetsFor(draft.type).slice(0,12);
   var dLabel = draft.date===today() ? '只有内容是必填的，其他都可以跳过'
                : '正在补记 <b style="color:var(--primary)">'+relDay(draft.date)+'</b>（'+draft.date+'）的饭';
@@ -917,6 +1092,7 @@ function openAdd(pref){
     (chips.length?'<div class="field"><label>常吃的一键填</label><div class="picks">'+
       chips.map(function(p){ return '<button class="pk" data-act="fname" data-v="'+esc(p.name)+'">'+esc(p.name)+'</button>'; }).join('')+
     '</div></div>':'')+
+    '<div class="field"><label>照片</label><div class="pfield" id="fPWrap">'+photoFieldInner(false)+'</div></div>'+
     '<div class="field"><label>在哪儿吃的</label><div class="picks" id="fPlace">'+
       PLACES.map(function(p){ return '<button class="pk" data-act="fplace" data-v="'+p.id+'">'+p.emoji+' '+p.label+'</button>'; }).join('')+
     '</div></div>'+
@@ -932,10 +1108,46 @@ function openAdd(pref){
   );
   setTimeout(function(){ var el=document.getElementById('fName'); if(el) el.focus(); }, 260);
 }
+function photoFieldInner(busy){
+  var inner;
+  if(busy){
+    inner = '<div class="pwrap"><div class="busy">压缩中…</div></div><div class="pnote">正在压缩照片…</div>';
+  }else if(draft.photoURL){
+    inner = '<div class="pwrap"><img src="'+draft.photoURL+'" alt="照片预览">'+
+      '<button class="rm" data-act="fprem" aria-label="移除照片">'+icon('x')+'</button></div>'+
+      '<div class="pnote">已选好，保存后会压缩存在本机<br>不会上传到任何服务器</div>';
+  }else{
+    inner = '<button class="pick-photo" data-act="fppick">'+icon('camera')+'<span>加照片</span></button>'+
+      '<div class="pnote">拍一张，或从相册挑一张<br>自动压缩，不会太占空间</div>';
+  }
+  return '<input type="file" id="fPhoto" accept="image/*" style="display:none">'+inner;
+}
+function refreshPhotoField(){
+  var w = document.getElementById('fPWrap');
+  if(w) w.innerHTML = photoFieldInner(false);
+}
+function handlePhotoPick(file){
+  if(!file) return;
+  if(file.type && !/^image\//.test(file.type)){ toast('请选一张图片'); return; }
+  var w = document.getElementById('fPWrap');
+  if(w) w.innerHTML = photoFieldInner(true);
+  compressImage(file).then(function(blob){
+    if(draft.photoURL) URL.revokeObjectURL(draft.photoURL);
+    draft.photoBlob = blob;
+    draft.photoURL = URL.createObjectURL(blob);
+    refreshPhotoField();
+  }).catch(function(){
+    toast('这张图读不出来，换一张试试');
+    refreshPhotoField();
+  });
+}
+document.addEventListener('change', function(e){
+  if(e.target && e.target.id === 'fPhoto') handlePhotoPick(e.target.files && e.target.files[0]);
+});
+
 function saveAdd(){
   var n = document.getElementById('fName');
   if(!n || !n.value.trim()){ toast('先写一下吃了什么'); return; }
-  var s = document.getElementById('sheet');
   var m = addMeal({
     name: n.value, type: draft.type, date: draft.date,
     place: draft.place,
@@ -943,9 +1155,37 @@ function saveAdd(){
     rating: draft.rating,
     note: (document.getElementById('fNote')||{}).value || ''
   });
+  var blob = draft.photoBlob, purl = draft.photoURL;
+  draft.photoBlob = null; draft.photoURL = '';
   closeSheet();
-  if(m) undoableAdd(m);
+  if(!m) return;
+  if(blob){
+    m.photo = m.id; save();                       // 先记引用，缩略图会异步补上
+    photoPut(m.id, blob).catch(function(){
+      m.photo = ''; save(); render();
+      toast('照片没能存下（可能空间不足），记录已经记好了');
+    });
+    if(purl) URL.revokeObjectURL(purl);
+  }
+  undoableAdd(m);
 }
+
+/* ---------------- photo lightbox ---------------- */
+function openPhoto(mealId){
+  var m = state.meals.filter(function(x){ return x.id === mealId; })[0];
+  if(!m || !m.photo) return;
+  var lb = document.getElementById('lightbox'), im = document.getElementById('lbImg');
+  im.removeAttribute('src');
+  var pl = m.place && PL[m.place];
+  document.getElementById('lbCap').textContent =
+    m.name + ' · ' + relDay(m.date) + (pl ? ' · ' + pl.label : '');
+  photoURL(m.photo).then(function(u){ if(u) im.src = u; });
+  lb.classList.add('on');
+}
+function closePhoto(){ document.getElementById('lightbox').classList.remove('on'); }
+document.getElementById('lightbox').addEventListener('click', function(e){
+  if(e.target === this) closePhoto();
+});
 
 /* ---------------- settings sheet ---------------- */
 function openSettings(){
@@ -971,14 +1211,20 @@ function openSettings(){
     '</div>'+
     '<div style="border-top:1px solid var(--line);padding-top:14px;margin-top:4px">'+groups+'</div>'+
     '<div style="border-top:1px solid var(--line);margin-top:6px">'+
-      '<button class="rowact" data-act="exp-json"><div><div class="t">导出备份（JSON）</div><div class="s">换手机 / 换浏览器时用它恢复</div></div>'+icon('dl')+'</button>'+
+      '<button class="rowact" data-act="exp-json"><div><div class="t">导出备份（JSON）</div><div class="s">换手机 / 换浏览器时用它恢复，含照片</div></div>'+icon('dl')+'</button>'+
       '<button class="rowact" data-act="exp-csv"><div><div class="t">导出表格（CSV）</div><div class="s">可以用 Excel / 备忘录打开</div></div>'+icon('dl')+'</button>'+
       '<button class="rowact" data-act="imp"><div><div class="t">导入备份</div><div class="s">选择之前导出的 JSON 文件</div></div>'+icon('ul')+'</button>'+
       '<button class="rowact" data-act="demo"><div><div class="t">载入示例数据</div><div class="s">想看统计长什么样？一键填两周记录</div></div>'+icon('sparkle')+'</button>'+
+      '<button class="rowact" data-act="wipe-photos"><div><div class="t">清空所有照片</div><div class="s" id="pstat">正在统计…</div></div>'+icon('camera')+'</button>'+
       '<button class="rowact danger" data-act="wipe"><div><div class="t">清空全部记录</div><div class="s">只删记录，常吃清单保留</div></div>'+icon('trash')+'</button>'+
     '</div>'+
     '<div class="rowbtns"><button class="btn btn-line" data-act="close">关闭</button></div>'
   );
+  photoUsage().then(function(u){
+    var el = document.getElementById('pstat');
+    if(!el) return;
+    el.textContent = u.count ? ('已存 '+u.count+' 张，占用约 '+(u.bytes/1048576).toFixed(1)+' MB') : '还没有照片';
+  });
 }
 
 /* ---------------- demo / export / import ---------------- */
@@ -1019,8 +1265,21 @@ function download(name, text, mime){
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 800);
 }
 function exportJSON(){
-  download('吃饭日记备份-'+today()+'.json', JSON.stringify({v:1, meals:state.meals, presets:state.presets}, null, 2), 'application/json');
-  toast('备份已导出');
+  photoEntries().then(function(list){
+    var photos = {}, jobs = [];
+    list.forEach(function(it){
+      jobs.push(blobToDataURL(it.blob).then(function(d){ photos[it.id] = d; }).catch(function(){}));
+    });
+    return Promise.all(jobs).then(function(){
+      download('吃饭日记备份-'+today()+'.json',
+        JSON.stringify({v:2, exportedAt:new Date().toISOString(), meals:state.meals, presets:state.presets, photos:photos}),
+        'application/json');
+      toast('已导出 '+state.meals.length+' 条记录'+(list.length?'、'+list.length+' 张照片':''));
+    });
+  }).catch(function(){
+    download('吃饭日记备份-'+today()+'.json', JSON.stringify({v:2, meals:state.meals, presets:state.presets, photos:{}}), 'application/json');
+    toast('已导出记录（照片导出失败）');
+  });
 }
 function exportCSV(){
   var rows = [['日期','餐次','吃了什么','地点','花费','评分','备注']];
@@ -1040,8 +1299,14 @@ document.getElementById('fileIn').addEventListener('change', function(e){
       if(!o || !Array.isArray(o.meals)) throw 0;
       state.meals = o.meals;
       if(Array.isArray(o.presets) && o.presets.length) state.presets = o.presets;
-      save(); render(); closeSheet();
-      toast('已导入 '+o.meals.length+' 条记录');
+      var ph = o.photos || {}, ids = Object.keys(ph);
+      var jobs = ids.map(function(id){
+        try{ return photoPut(id, dataURLtoBlob(ph[id])); }catch(e){ return Promise.resolve(); }
+      });
+      Promise.all(jobs).then(function(){
+        save(); render(); closeSheet();
+        toast('已导入 '+o.meals.length+' 条记录'+(ids.length?'、'+ids.length+' 张照片':''));
+      });
     }catch(err){ toast('这个文件读不出来，确认是导出的 JSON'); }
   };
   fr.readAsText(f);
@@ -1068,6 +1333,7 @@ document.addEventListener('click', function(e){
       var gone = state.meals.filter(function(x){ return x.id===id; })[0];
       state.meals = state.meals.filter(function(x){ return x.id!==id; });
       save(); render();
+      setTimeout(gcPhotos, 6500);
       if(gone) toast('已删除 <b>'+esc(gone.name)+'</b>', {action:'撤销', onAction:function(){ state.meals.push(gone); save(); render(); }});
       break;
     }
@@ -1082,6 +1348,21 @@ document.addEventListener('click', function(e){
     case 'accept': if(lastPick){ var t2 = ui.pickType==='auto'?guessType():ui.pickType; var m2 = addMeal({name:lastPick.name, type:t2}); if(m2) undoableAdd(m2); } break;
     case 'settings': openSettings(); break;
     case 'close': closeSheet(); break;
+    case 'fppick': { var fp = document.getElementById('fPhoto'); if(fp) fp.click(); break; }
+    case 'fprem':
+      if(draft.photoURL){ URL.revokeObjectURL(draft.photoURL); }
+      draft.photoBlob = null; draft.photoURL = '';
+      refreshPhotoField();
+      break;
+    case 'view-photo': openPhoto(el.getAttribute('data-id')); break;
+    case 'close-photo': closePhoto(); break;
+    case 'wipe-photos':
+      if(!confirm('清空所有照片？记录会保留，只是没有图了。')) break;
+      clearPhotos().then(function(){
+        Object.keys(photoURLs).forEach(dropPhotoURL);
+        save(); render(); closeSheet(); toast('照片已清空');
+      });
+      break;
     case 'ftype': draft.type = el.getAttribute('data-v');
       Array.prototype.forEach.call(document.querySelectorAll('#fType .pk'), function(b){ b.classList.toggle('on', b===el); });
       break;
@@ -1118,7 +1399,7 @@ document.addEventListener('click', function(e){
     case 'demo': loadDemo(); break;
     case 'wipe':
       if(!confirm('清空全部 '+state.meals.length+' 条记录？此操作不可恢复。')) break;
-      state.meals = []; save(); closeSheet(); render(); toast('记录已清空');
+      state.meals = []; save(); closeSheet(); render(); gcPhotos(); toast('记录已清空');
       break;
   }
 });
@@ -1127,6 +1408,7 @@ document.addEventListener('click', function(e){
 state = load();
 if(!state.recentPicks) state.recentPicks = [];
 render();
+setTimeout(gcPhotos, 1500);   // 回收上次遗留的孤儿照片
 window.addEventListener('visibilitychange', function(){ if(!document.hidden) render(); });
 })();
 </script>
