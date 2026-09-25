@@ -1,5 +1,5 @@
 /* 吃了么 Service Worker —— 让应用能离线打开 */
-var CACHE = 'chifan-v9';
+var CACHE = 'chifan-v10';
 var SHELL = [
   './', './index.html', './manifest.json',
   './assets/app-icon-192.png', './assets/app-icon-512.png',
